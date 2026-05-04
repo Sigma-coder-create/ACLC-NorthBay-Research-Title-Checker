@@ -1,10 +1,23 @@
-# Step 1: Build the application using Maven and JDK 17
-FROM maven:3.8.5-openjdk-17 AS build
+# Step 1: Build the application using Maven and Java 21
+FROM maven:3.9.6-eclipse-temurin-21 AS build
+WORKDIR /app
+
+# Copy the pom.xml and source code
 COPY . .
+
+# Run Maven build, skipping tests to speed up the process
 RUN mvn clean package -DskipTests
 
-# Step 2: Run the application using Eclipse Temurin JDK 17
-FROM eclipse-temurin:17-jdk-alpine
-COPY --from=build /target/web-app-1.0-SNAPSHOT.jar app.jar
+# Step 2: Run the application using Java 21 Runtime
+FROM eclipse-temurin:21-jre
+WORKDIR /app
+
+# Copy the JAR file from the build stage
+# Note: Ensure the filename matches your actual generated JAR name
+COPY --from=build /app/target/*.jar app.jar
+
+# Expose the port (Render usually uses 8080 or 10000)
 EXPOSE 8080
+
+# Start the application
 ENTRYPOINT ["java", "-jar", "app.jar"]
