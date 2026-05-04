@@ -14,7 +14,7 @@ WORKDIR /app
 
 # Copy the JAR file from the build stage
 # Note: Ensure the filename matches your actual generated JAR name
-COPY --from=build /app/target/*.jar app.jar
+COPY --from=build /app/web/target/*.jar app.jar
 
 # Expose the port (Render usually uses 8080 or 10000)
 EXPOSE 8080
