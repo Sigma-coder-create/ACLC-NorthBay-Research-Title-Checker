@@ -1,0 +1,488 @@
+package raven.modal.demo.forms;
+
+import com.formdev.flatlaf.FlatClientProperties;
+import net.miginfocom.swing.MigLayout;
+import raven.modal.Toast;
+import raven.modal.demo.component.LabelButton;
+import raven.modal.demo.simple.SimpleCustomNotificationToast;
+import raven.modal.demo.simple.SimpleCustomToast;
+import raven.modal.demo.system.Form;
+import raven.modal.demo.utils.SystemForm;
+import raven.modal.option.Location;
+import raven.modal.toast.ToastPromise;
+import raven.modal.toast.option.ToastBorderStyle;
+import raven.modal.toast.option.ToastLocation;
+import raven.modal.toast.option.ToastOption;
+import raven.modal.toast.option.ToastStyle;
+
+import javax.swing.*;
+import javax.swing.border.TitledBorder;
+import java.awt.*;
+import java.util.Random;
+
+@SystemForm(name = "Toast", description = "toast notification message", tags = {"alert"})
+public class FormToast extends Form {
+
+    public FormToast() {
+        init();
+    }
+
+    private void init() {
+        setLayout(new MigLayout("wrap,fillx", "[fill]"));
+        add(createInfo());
+        add(createOptions());
+    }
+
+    private JPanel createInfo() {
+        JPanel panel = new JPanel(new MigLayout("fillx,wrap", "[fill]"));
+        JLabel title = new JLabel("Toast");
+        JTextPane text = new JTextPane();
+        text.setText("A toast notification is a small, transient message that appears on the screen to provide feedback to the user.\nIt is commonly used to display brief, non-intrusive notifications.");
+        text.setEditable(false);
+        text.setBorder(BorderFactory.createEmptyBorder());
+        title.putClientProperty(FlatClientProperties.STYLE, "" +
+                "font:bold +3");
+
+        panel.add(title);
+        panel.add(text, "width 500");
+        return panel;
+    }
+
+    private Component createOptions() {
+        JPanel panel = new JPanel(new MigLayout("wrap 2,fillx", "[grow 0,fill][fill]", "[fill]"));
+        panel.add(createHorizontalOption());
+        panel.add(createVerticalOption());
+        panel.add(createToastOption());
+        panel.add(createBackgroundToastStyle(), "width 130::,split 3");
+        panel.add(createBorderToastStyle(), "width 130::");
+        panel.add(createOtherToastStyle());
+        panel.add(createSampleToast(), "span 2");
+        panel.add(createCustomToast(), "span 2");
+        return panel;
+    }
+
+    private Component createHorizontalOption() {
+        JPanel panel = new JPanel(new MigLayout());
+        panel.setBorder(new TitledBorder("Horizontal option"));
+        jrLeading = new JRadioButton("Leading");
+        jrCenter = new JRadioButton("Center");
+        jrTrailing = new JRadioButton("Trailing");
+
+        jrCenter.setSelected(true);
+
+        ButtonGroup group = new ButtonGroup();
+        group.add(jrLeading);
+        group.add(jrCenter);
+        group.add(jrTrailing);
+
+        panel.add(jrLeading);
+        panel.add(jrCenter);
+        panel.add(jrTrailing);
+
+        return panel;
+    }
+
+    private Component createVerticalOption() {
+        JPanel panel = new JPanel(new MigLayout());
+        panel.setBorder(new TitledBorder("Vertical option"));
+
+        jrTop = new JRadioButton("Top");
+        jrButton = new JRadioButton("Bottom");
+
+        jrTop.setSelected(true);
+
+        ButtonGroup group = new ButtonGroup();
+        group.add(jrTop);
+        group.add(jrButton);
+
+        panel.add(jrTop);
+        panel.add(jrButton);
+
+        return panel;
+    }
+
+    private Component createToastOption() {
+        JPanel panel = new JPanel(new MigLayout("wrap"));
+        panel.setBorder(new TitledBorder("Toast option"));
+
+        chAnimation = new JCheckBox("Animation enable");
+        chPauseDelayOnHover = new JCheckBox("Pause delay on hover");
+        chAutoClose = new JCheckBox("Auto close");
+        chCloseOnClick = new JCheckBox("Close on click");
+        chHeavyWeight = new JCheckBox("Heavy weight");
+        chRelativeToOwner = new JCheckBox("Relative to owner");
+        JCheckBox chReverseOrder = new JCheckBox("Reverse order");
+
+        chAnimation.setSelected(true);
+        chPauseDelayOnHover.setSelected(true);
+        chAutoClose.setSelected(true);
+
+        chReverseOrder.addActionListener(e -> Toast.setReverseOrder(chReverseOrder.isSelected()));
+
+        panel.add(chAnimation);
+        panel.add(chPauseDelayOnHover);
+        panel.add(chAutoClose);
+        panel.add(chCloseOnClick);
+        panel.add(chHeavyWeight);
+        panel.add(chRelativeToOwner);
+        panel.add(chReverseOrder);
+
+        return panel;
+    }
+
+    private Component createBackgroundToastStyle() {
+        JPanel panel = new JPanel(new MigLayout("wrap"));
+        panel.setBorder(new TitledBorder("Background style"));
+
+        jrBackgroundDefault = new JRadioButton("Default");
+        jrBackgroundGradient = new JRadioButton("Gradient");
+        jrBackgroundNone = new JRadioButton("None");
+
+        jrBackgroundNone.setSelected(true);
+
+        ButtonGroup group = new ButtonGroup();
+        group.add(jrBackgroundDefault);
+        group.add(jrBackgroundGradient);
+        group.add(jrBackgroundNone);
+
+        panel.add(jrBackgroundDefault);
+        panel.add(jrBackgroundGradient);
+        panel.add(jrBackgroundNone);
+
+        return panel;
+    }
+
+    private Component createBorderToastStyle() {
+        JPanel panel = new JPanel(new MigLayout("wrap"));
+        panel.setBorder(new TitledBorder("Border style"));
+
+        jrBorderOutline = new JRadioButton("Outline");
+        jrBorderRightLine = new JRadioButton("Trailing line");
+        jrBorderLeftLine = new JRadioButton("Leading line");
+        jrBorderTopLine = new JRadioButton("Top line");
+        jrBorderBottomLine = new JRadioButton("Bottom line");
+        jrBorderNone = new JRadioButton("None");
+
+        jrBorderNone.setSelected(true);
+
+        ButtonGroup group = new ButtonGroup();
+        group.add(jrBorderOutline);
+        group.add(jrBorderRightLine);
+        group.add(jrBorderLeftLine);
+        group.add(jrBorderTopLine);
+        group.add(jrBorderBottomLine);
+        group.add(jrBorderNone);
+
+        panel.add(jrBorderOutline);
+        panel.add(jrBorderRightLine);
+        panel.add(jrBorderLeftLine);
+        panel.add(jrBorderTopLine);
+        panel.add(jrBorderBottomLine);
+        panel.add(jrBorderNone);
+
+        return panel;
+    }
+
+    private Component createOtherToastStyle() {
+        JPanel panel = new JPanel(new MigLayout("wrap"));
+        panel.setBorder(new TitledBorder("Other style"));
+
+        chShowIcon = new JCheckBox("Show icon");
+        chShowLabel = new JCheckBox("Show label");
+        chIconSeparateLine = new JCheckBox("Icon separate line");
+        chShowCloseButton = new JCheckBox("Show close button");
+        chPaintTextColor = new JCheckBox("Paint text color");
+
+        chShowIcon.setSelected(true);
+        chShowCloseButton.setSelected(true);
+
+        panel.add(chShowIcon);
+        panel.add(chShowLabel);
+        panel.add(chIconSeparateLine);
+        panel.add(chShowCloseButton);
+        panel.add(chPaintTextColor);
+
+        return panel;
+    }
+
+    private Component createSampleToast() {
+        JPanel panel = new JPanel(new MigLayout());
+        panel.setBorder(new TitledBorder("Sample toast"));
+        LabelButton lbDefault = new LabelButton("Show default");
+        LabelButton lbSuccess = new LabelButton("Show success");
+        LabelButton lbInfo = new LabelButton("Show info");
+        LabelButton lbWarning = new LabelButton("Show warning");
+        LabelButton lbError = new LabelButton("Show error");
+        LabelButton lbPromise = new LabelButton("Show promise");
+
+        LabelButton lbCloseAll = new LabelButton("Close all");
+        lbCloseAll.putClientProperty(FlatClientProperties.STYLE, "" +
+                "foreground:#D23333;");
+
+        lbDefault.addOnClick(() -> showToast(Toast.Type.DEFAULT, getSelectedOption()));
+        lbSuccess.addOnClick(() -> showToast(Toast.Type.SUCCESS, getSelectedOption()));
+        lbInfo.addOnClick(() -> showToast(Toast.Type.INFO, getSelectedOption()));
+        lbWarning.addOnClick(() -> showToast(Toast.Type.WARNING, getSelectedOption()));
+        lbError.addOnClick(() -> showToast(Toast.Type.ERROR, getSelectedOption()));
+        lbPromise.addOnClick(() -> showPromise(getSelectedOption()));
+        lbCloseAll.addOnClick(Toast::closeAll);
+
+        panel.add(lbDefault);
+        panel.add(lbSuccess);
+        panel.add(lbInfo);
+        panel.add(lbWarning);
+        panel.add(lbError);
+        panel.add(lbPromise);
+        panel.add(lbCloseAll);
+        return panel;
+    }
+
+    private Component createCustomToast() {
+        JPanel panel = new JPanel(new MigLayout());
+        panel.setBorder(new TitledBorder("Custom toast"));
+        LabelButton lbCustomNotificationBox = new LabelButton("Show notification (fixed opt)");
+        LabelButton lbCustomHtml = new LabelButton("Show custom HTML (fixed opt)");
+        LabelButton lbCustom = new LabelButton("Show custom");
+        LabelButton lbCustomPromise = new LabelButton("Show custom promise (fixed opt)");
+
+        lbCustomNotificationBox.addOnClick(this::showCustomNotificationBox);
+        lbCustomHtml.addOnClick(this::showCustomHtml);
+        lbCustom.addOnClick(() -> showCustom(getSelectedOption()));
+        lbCustomPromise.addOnClick(new LabelButton.Callback() {
+
+            private String id;
+
+            @Override
+            public void call() {
+                if (id == null || !Toast.isToastAvailable(id)) {
+                    id = showPromiseCustom();
+                }
+            }
+        });
+        panel.add(lbCustomNotificationBox);
+        panel.add(lbCustomHtml);
+        panel.add(lbCustom);
+        panel.add(lbCustomPromise);
+        return panel;
+    }
+
+    private void showToast(Toast.Type type, ToastOption option) {
+        String text = "Simple swing toast notification";
+        Toast.show(this, type, text, option);
+    }
+
+    private void showCustomNotificationBox() {
+        ToastOption option = Toast.createOption();
+        option.setAnimationEnabled(false)
+                .setAutoClose(false)
+                .getLayoutOption()
+                .setRelativeToOwner(true)
+                .setLocation(ToastLocation.BOTTOM_TRAILING);
+        option.getStyle().setBackgroundType(ToastStyle.BackgroundType.NONE)
+                .getBorderStyle().setBorderType(ToastBorderStyle.BorderType.OUTLINE);
+        Toast.showCustom(this, new SimpleCustomNotificationToast(), option);
+    }
+
+    private void showCustomHtml() {
+        ToastOption option = Toast.createOption();
+        option.setAnimationEnabled(false)
+                .setHtmlEnabled(true)
+                .setAutoClose(false)
+                .getLayoutOption()
+                .setRelativeToOwner(true)
+                .setLocation(ToastLocation.BOTTOM_TRAILING);
+        option.getStyle().setBackgroundType(ToastStyle.BackgroundType.NONE)
+                .setShowIcon(false)
+                .getBorderStyle().setBorderType(ToastBorderStyle.BorderType.BOTTOM_LINE);
+        Toast.show(this, Toast.Type.DEFAULT,
+                "<html>\n" +
+                        "<div style='width:240px'>\n" +
+                        "<b><font color='#2ECC71'>✔ Login Successful</font></b><br><br>\n" +
+                        "\n" +
+                        "Welcome back <b><font color='#8E44AD'>Administrator</font></b>.<br>\n" +
+                        "Last login: <font color='#3498DB'>Today 10:32 AM</font><br>\n" +
+                        "\n" +
+                        "<i><font color='#7F8C8D'>\n" +
+                        "Your account has been verified and the system is ready\n" +
+                        "for you to continue working.\n" +
+                        "</font></i>\n" +
+                        "</div>\n" +
+                        "</html>"
+                , option);
+    }
+
+    private void showCustom(ToastOption option) {
+        Toast.showCustom(this, new SimpleCustomToast(), option);
+    }
+
+    private void showPromise(ToastOption option) {
+        if (Toast.checkPromiseId("raven")) {
+            return;
+        }
+        Toast.showPromise(this, "Toast with promise please wait", option, getPromiseCallback());
+    }
+
+    private String showPromiseCustom() {
+        ToastOption option = Toast.createOption();
+        option.setHtmlEnabled(true)
+                .setCloseOnClick(true)
+                .getLayoutOption()
+                .setLocation(ToastLocation.TOP_TRAILING);
+        option.getStyle().setBackgroundType(ToastStyle.BackgroundType.NONE)
+                .setShowIcon(false)
+                .setShowCloseButton(false)
+                .setIconSeparateLine(true)
+                .getBorderStyle().setBorderType(ToastBorderStyle.BorderType.LEADING_LINE);
+        return Toast.showPromise(this, "" +
+                        "<html>\n" +
+                        "<b><font color='#3498DB'>\uD83C\uDF10 Server Connection</font></b><br>\n" +
+                        "<font color='#7F8C8D'>Preparing secure channel for payment verification.</font>\n" +
+                        "</html>"
+                , option, getPromiseCallbackCustom());
+    }
+
+    private ToastPromise getPromiseCallback() {
+        return new ToastPromise("raven") {
+            @Override
+            public void execute(PromiseCallback callback) {
+                try {
+                    for (int i = 0; i <= 100; i++) {
+                        callback.update(String.format("Downloading %d%%", i));
+                        Thread.sleep((new Random().nextInt(7) + 1) * 10);
+                    }
+                    int type = sleepAndRandomCallback(0);
+                    if (type == 1) {
+                        callback.done(Toast.Type.SUCCESS, "Promise has done with success");
+                    } else if (type == 2) {
+                        callback.done(Toast.Type.ERROR, "Promise has done with error");
+                    } else if (type == 3) {
+                        callback.done(Toast.Type.INFO, "Promise has done with info");
+                    } else if (type == 4) {
+                        callback.done(Toast.Type.WARNING, "Promise has done with warning");
+                    } else {
+                        callback.done(Toast.Type.DEFAULT, "Promise has done with default");
+                    }
+                } catch (InterruptedException e) {
+                    System.out.println(e.getMessage());
+                }
+            }
+        };
+    }
+
+    private ToastPromise getPromiseCallbackCustom() {
+        return new ToastPromise() {
+            @Override
+            public void execute(PromiseCallback callback) {
+                try {
+                    int type = sleepAndRandomCallback(2000);
+                    if (type == 1) {
+                        callback.done(Toast.Type.WARNING, "" +
+                                "<html>\n" +
+                                "<b><font color='#F39C12'>⚠ Connection Warning</font></b><br>\n" +
+                                "<font color='#7F8C8D'>\n" +
+                                "The payment server is responding slowly.<br>\n" +
+                                "Transaction verification may take longer than expected.<br>\n" +
+                                "<font color='#E67E22'><b>Please wait while processing continues.</b></font>\n" +
+                                "</font>\n" +
+                                "</html>");
+                    } else if (type == 2) {
+                        callback.done(Toast.Type.ERROR, "" +
+                                "<html>\n" +
+                                "<b><font color='#E74C3C'>✖ Payment Failed</font></b><br>\n" +
+                                "<font color='#7F8C8D'>\n" +
+                                "Unable to verify the transaction with the server.<br>\n" +
+                                "The connection may have timed out.<br>\n" +
+                                "<font color='#E67E22'><b>Please retry the payment.</b></font>\n" +
+                                "</font>\n" +
+                                "</html>");
+                    } else {
+                        callback.done(Toast.Type.SUCCESS, "" +
+                                "<html>\n" +
+                                "<b><font color='#2ECC71'>✔ Payment Successful</font></b><br>\n" +
+                                "<font color='#7F8C8D'>\n" +
+                                "Transaction approved by the payment server.<br>\n" +
+                                "Your payment has been securely processed.<br>\n" +
+                                "<b><font color='#27AE60'>100% completed</font></b>\n" +
+                                "</font>\n" +
+                                "</html>");
+                    }
+                } catch (InterruptedException e) {
+                    System.out.println(e.getMessage());
+                }
+            }
+        };
+    }
+
+    private int sleepAndRandomCallback(int m) throws InterruptedException {
+        if (m > 0) {
+            Thread.sleep(m);
+        }
+        Random ran = new Random();
+        return ran.nextInt(5) + 1;
+    }
+
+    private ToastOption getSelectedOption() {
+        ToastOption option = Toast.createOption();
+        Location h = jrLeading.isSelected() ? Location.LEADING : jrTrailing.isSelected() ? Location.TRAILING : Location.CENTER;
+        Location v = jrTop.isSelected() ? Location.TOP : Location.BOTTOM;
+        ToastStyle.BackgroundType backgroundType = jrBackgroundDefault.isSelected() ? ToastStyle.BackgroundType.DEFAULT : jrBackgroundGradient.isSelected() ? ToastStyle.BackgroundType.GRADIENT : ToastStyle.BackgroundType.NONE;
+        ToastBorderStyle.BorderType borderType = jrBorderOutline.isSelected() ? ToastBorderStyle.BorderType.OUTLINE : jrBorderRightLine.isSelected() ? ToastBorderStyle.BorderType.TRAILING_LINE : jrBorderLeftLine.isSelected() ? ToastBorderStyle.BorderType.LEADING_LINE : jrBorderTopLine.isSelected() ? ToastBorderStyle.BorderType.TOP_LINE : jrBorderBottomLine.isSelected() ? ToastBorderStyle.BorderType.BOTTOM_LINE : ToastBorderStyle.BorderType.NONE;
+        option.setAnimationEnabled(chAnimation.isSelected())
+                .setPauseDelayOnHover(chPauseDelayOnHover.isSelected())
+                .setAutoClose(chAutoClose.isSelected())
+                .setCloseOnClick(chCloseOnClick.isSelected())
+                .setHeavyWeight(chHeavyWeight.isSelected());
+
+        option.getLayoutOption()
+                .setLocation(ToastLocation.from(h, v))
+                .setRelativeToOwner(chRelativeToOwner.isSelected());
+        option.getStyle().setBackgroundType(backgroundType)
+                .setShowIcon(chShowIcon.isSelected())
+                .setShowLabel(chShowLabel.isSelected())
+                .setIconSeparateLine(chIconSeparateLine.isSelected())
+                .setShowCloseButton(chShowCloseButton.isSelected())
+                .setPaintTextColor(chPaintTextColor.isSelected())
+                .setPromiseLabel("Saving...")
+                .getBorderStyle()
+                .setBorderType(borderType)
+        ;
+        return option;
+    }
+
+    // horizontal
+    private JRadioButton jrLeading;
+    private JRadioButton jrCenter;
+    private JRadioButton jrTrailing;
+
+    // vertical
+    private JRadioButton jrTop;
+    private JRadioButton jrButton;
+
+    // option
+    private JCheckBox chAnimation;
+    private JCheckBox chPauseDelayOnHover;
+    private JCheckBox chAutoClose;
+    private JCheckBox chCloseOnClick;
+    private JCheckBox chHeavyWeight;
+    private JCheckBox chRelativeToOwner;
+
+    // style background
+    private JRadioButton jrBackgroundDefault;
+    private JRadioButton jrBackgroundGradient;
+    private JRadioButton jrBackgroundNone;
+
+    // style border
+    private JRadioButton jrBorderOutline;
+    private JRadioButton jrBorderRightLine;
+    private JRadioButton jrBorderLeftLine;
+    private JRadioButton jrBorderTopLine;
+    private JRadioButton jrBorderBottomLine;
+    private JRadioButton jrBorderNone;
+
+    // other style
+    private JCheckBox chShowIcon;
+    private JCheckBox chShowLabel;
+    private JCheckBox chIconSeparateLine;
+    private JCheckBox chShowCloseButton;
+    private JCheckBox chPaintTextColor;
+}

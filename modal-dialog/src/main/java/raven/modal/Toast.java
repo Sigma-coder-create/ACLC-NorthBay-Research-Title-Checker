@@ -1,0 +1,277 @@
+package raven.modal;
+
+import raven.modal.layout.FrameModalLayout;
+import raven.modal.layout.FrameToastLayout;
+import raven.modal.toast.*;
+import raven.modal.toast.option.ToastLocation;
+import raven.modal.toast.option.ToastOption;
+
+import javax.swing.*;
+import java.awt.*;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
+
+/**
+ * @author Raven
+ */
+public class Toast {
+
+    private static Toast instance;
+    private static final AtomicInteger toastCounter = new AtomicInteger();
+    private final Integer LAYER = JLayeredPane.POPUP_LAYER;
+    private final Map<RootPaneContainer, ToastContainerLayer> map;
+    private final Map<Type, ToastPanel.ThemesData> themesDataMap;
+    private final ToastOption defaultOption;
+    private boolean reverseOrder;
+
+    private static Toast getInstance() {
+        if (instance == null) {
+            instance = new Toast();
+        }
+        return instance;
+    }
+
+    private Toast() {
+        map = new HashMap<>();
+        themesDataMap = new HashMap<>();
+        initThemesData();
+        defaultOption = ToastOption.getDefault();
+    }
+
+    private void initThemesData() {
+        themesDataMap.put(Type.SUCCESS, new ToastPanel.ThemesData("raven/modal/icon/toast_success.svg", new String[]{"#1EA97C", "#1EA97C"}));
+        themesDataMap.put(Type.INFO, new ToastPanel.ThemesData("raven/modal/icon/toast_info.svg", new String[]{"#3B82F6", "#3B82F6"}));
+        themesDataMap.put(Type.WARNING, new ToastPanel.ThemesData("raven/modal/icon/toast_warning.svg", new String[]{"#CC8925", "#CC8925"}));
+        themesDataMap.put(Type.ERROR, new ToastPanel.ThemesData("raven/modal/icon/toast_error.svg", new String[]{"#FF5757", "#FF5757"}));
+        themesDataMap.put(Type.DEFAULT, new ToastPanel.ThemesData(null, new String[]{"#64748b", "#64748b"}));
+    }
+
+    public static String show(Component owner, Type type, String message) {
+        return show(owner, type, message, getDefaultOption());
+    }
+
+    public static String show(Component owner, Type type, String message, ToastLocation location) {
+        ToastOption option = createOption();
+        option.getLayoutOption()
+                .setLocation(location);
+        return show(owner, type, message, option);
+    }
+
+    public static String show(Component owner, Type type, String message, ToastLocation location, ToastOption option) {
+        option.getLayoutOption()
+                .setLocation(location);
+        return show(owner, type, message, option, null);
+    }
+
+    public static String show(Component owner, Type type, String message, ToastOption option) {
+        return show(owner, type, message, option, null);
+    }
+
+    public static String showPromise(Component owner, String message, ToastPromise promise) {
+        return showPromise(owner, message, getDefaultOption(), promise);
+    }
+
+    public static String showPromise(Component owner, String message, ToastLocation location, ToastPromise promise) {
+        ToastOption option = createOption();
+        option.getLayoutOption()
+                .setLocation(location);
+        return showPromise(owner, message, option, promise);
+    }
+
+    public static String showPromise(Component owner, String message, ToastLocation location, ToastOption option, ToastPromise promise) {
+        option.getLayoutOption()
+                .setLocation(location);
+        return showPromise(owner, message, option, promise);
+    }
+
+    public static String showPromise(Component owner, String message, ToastOption option, ToastPromise promise) {
+        return show(owner, null, message, option, promise);
+    }
+
+    public static String showCustom(Component owner, Component component, ToastOption option) {
+        return show(owner, null, component, option, null);
+    }
+
+    private static String show(Component owner, Type type, Object object, ToastOption option, ToastPromise promise) {
+        ToastPanel.ThemesData themesData = getInstance().themesDataMap.get(type);
+        RootPaneContainer rootPaneContainer = ModalDialog.getRootPaneContainer(owner);
+        BaseToastContainer toastContainerLayer = getInstance().getToastContainer(owner, option.isHeavyWeight());
+        String message = object instanceof String ? object.toString() : null;
+        Component toastOwner = option.getLayoutOption().isRelativeToOwner() ? owner : null;
+        String toastId = nextToastId();
+        ToastPanel toastPanel = new ToastPanel(toastContainerLayer, toastOwner, new ToastPanel.ToastData(type, option, themesData, message), toastId);
+        if (object instanceof Component) {
+            toastContainerLayer.add(toastPanel.createToastCustom((Component) object));
+        } else if (promise != null) {
+            toastContainerLayer.add(toastPanel.createToastPromise(promise));
+        } else {
+            toastContainerLayer.add(toastPanel.createToast());
+        }
+        if (rootPaneContainer.getRootPane().getComponentOrientation().isLeftToRight() != toastPanel.getComponentOrientation().isLeftToRight()) {
+            toastPanel.applyComponentOrientation(rootPaneContainer.getRootPane().getComponentOrientation());
+        }
+        toastPanel.start();
+        return toastId;
+    }
+
+    public static boolean checkPromiseId(String id) {
+        if (id == null) {
+            throw new IllegalArgumentException("id must not null");
+        }
+        for (BaseToastContainer com : getInstance().map.values()) {
+            if (com.checkPromiseId(id)) {
+                return true;
+            }
+        }
+        return ToastHeavyWeight.getInstance().checkPromiseId(id);
+    }
+
+    public static boolean isToastAvailable(String id) {
+        if (id == null) {
+            throw new IllegalArgumentException("id must not null");
+        }
+        for (BaseToastContainer com : getInstance().map.values()) {
+            if (com.checkId(id)) {
+                return true;
+            }
+        }
+        return ToastHeavyWeight.getInstance().isIdExist(id);
+    }
+
+    public static void closeAll() {
+        getInstance().map.values().forEach(com -> {
+            com.closeAll();
+        });
+        ToastHeavyWeight.getInstance().closeAll();
+    }
+
+    public static void closeAll(ToastLocation location) {
+        getInstance().map.values().forEach(com -> {
+            com.closeAll(location);
+        });
+        ToastHeavyWeight.getInstance().closeAll(location);
+    }
+
+    public static void close(String id) {
+        for (BaseToastContainer com : getInstance().map.values()) {
+            if (com.close(id)) {
+                return;
+            }
+        }
+        ToastHeavyWeight.getInstance().close(id);
+    }
+
+    public static void closeAllImmediately() {
+        getInstance().map.values().forEach(com -> {
+            com.closeAllImmediately();
+        });
+        ToastHeavyWeight.getInstance().closeAllImmediately();
+    }
+
+    public static void closeImmediately(String id) {
+        for (BaseToastContainer com : getInstance().map.values()) {
+            if (com.closeImmediately(id)) {
+                return;
+            }
+        }
+        ToastHeavyWeight.getInstance().closeImmediately(id);
+    }
+
+    public static void setReverseOrder(boolean reverseOrder) {
+        if (reverseOrder != isReverseOrder()) {
+            getInstance().reverseOrder = reverseOrder;
+            getInstance().updateLayout();
+        }
+    }
+
+    public static boolean isReverseOrder() {
+        return getInstance().reverseOrder;
+    }
+
+    public static ToastOption getDefaultOption() {
+        return getInstance().defaultOption;
+    }
+
+    public static ToastOption createOption() {
+        return getInstance().defaultOption.copy();
+    }
+
+    public static Map<Type, ToastPanel.ThemesData> getThemesData() {
+        return getInstance().themesDataMap;
+    }
+
+    private void updateLayout() {
+        for (BaseToastContainer com : map.values()) {
+            com.updateLayout();
+        }
+        ToastHeavyWeight.getInstance().updateLayout();
+    }
+
+    /**
+     * Get toast container layered or create new for windows
+     */
+    private ToastContainerLayer getToastContainerLayered(RootPaneContainer rootPaneContainer) {
+        ToastContainerLayer toastContainerLayer;
+        if (map.containsKey(rootPaneContainer)) {
+            toastContainerLayer = map.get(rootPaneContainer);
+        } else {
+            // get layeredPane from window
+            JLayeredPane windowLayeredPane = rootPaneContainer.getLayeredPane();
+
+            // create new toast container layered
+            toastContainerLayer = createToastContainerLayered(rootPaneContainer);
+
+            // add toast container layered to window layeredPane
+            windowLayeredPane.add(toastContainerLayer.getLayeredPane(), LAYER);
+
+            // init component orientation
+            toastContainerLayer.initComponentOrientation(rootPaneContainer.getRootPane().getComponentOrientation());
+
+            // set custom layout to window layeredPane
+            LayoutManager layout = windowLayeredPane.getLayout();
+            FrameToastLayout frameToastLayout = new FrameToastLayout(toastContainerLayer.getLayeredPane());
+            if (layout != null && layout instanceof FrameModalLayout) {
+                ((FrameModalLayout) layout).setOtherComponent(toastContainerLayer.getLayeredPane(), frameToastLayout);
+            } else {
+                // install toast layout
+                windowLayeredPane.setLayout(frameToastLayout);
+            }
+
+            // store toast container layered to map
+            map.put(rootPaneContainer, toastContainerLayer);
+
+            // install property to windows
+            toastContainerLayer.installWindowListener();
+        }
+        return toastContainerLayer;
+    }
+
+    private ToastContainerLayer createToastContainerLayered(RootPaneContainer rootPaneContainer) {
+        ToastContainerLayer layeredPane = new ToastContainerLayer(map, rootPaneContainer);
+        layeredPane.getLayeredPane().setVisible(false);
+        return layeredPane;
+    }
+
+    private BaseToastContainer getToastContainer(Component owner, boolean isHeavyWeight) {
+        if (isHeavyWeight) {
+            return ToastHeavyWeight.getInstance().getToastHeavyWeightContainer(owner);
+        }
+        return getToastContainerLayered(ModalDialog.getRootPaneContainer(owner));
+    }
+
+    private static String nextToastId() {
+        return "toast-" + toastCounter.incrementAndGet();
+    }
+
+    public static void setEnableHierarchy(boolean enable) {
+        if (instance != null) {
+            instance.map.values().forEach(container -> container.setEnableHierarchy(enable));
+        }
+        ToastHeavyWeight.getInstance().setEnableHierarchy(enable);
+    }
+
+    public enum Type {
+        DEFAULT, SUCCESS, INFO, WARNING, ERROR
+    }
+}

@@ -1,0 +1,6 @@
+# Encrypt the database properties in the demo module
+demo/src/main/resources/raven/modal/demo/data/db.properties filter=git-crypt diff=git-crypt
+
+# Encrypt the Spring Boot properties in the web module
+web/src/main/resources/application.properties filter=git-crypt diff=git-crypt
+Mysqldb.sql filter=git-crypt diff=git-crypt
