@@ -41,7 +41,10 @@ public class TestForm extends BaseFrame {
                 hide.addActionListener(e1 -> setVisible(false));
                 ModalDialog.showModal(this, new SimpleModalBorder(hide, "Test"));
             });
-            MyMenuValidation.setUser(new ModelUser("Ra Ven", "raven@gmail.com", ModelUser.Role.ADMIN));
+
+            // Use TEACHER role for testing (or STUDENT if you want to test limited menu)
+            MyMenuValidation.setUser(new ModelUser("Test Teacher", "teacher@test.com", ModelUser.Role.TEACHER));
+
             Drawer.installDrawer(this, MyDrawerBuilder.getInstance());
             setLayout(new MigLayout("al center center"));
             add(show);
@@ -63,7 +66,6 @@ public class TestForm extends BaseFrame {
                         return true;
                     }
                 });
-
             });
             add(showToast);
             JButton showDrawer = new JButton("Show drawer");

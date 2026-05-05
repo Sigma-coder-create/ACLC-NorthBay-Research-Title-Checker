@@ -31,6 +31,13 @@ public class MyDrawerBuilder extends SimpleDrawerBuilder {
     private static MyDrawerBuilder instance;
     private ModelUser user;
 
+    private MyDrawerBuilder() {
+        super(createSimpleMenuOption());   // <-- required because SimpleDrawerBuilder has no no‑arg constructor
+        LightDarkButtonFooter lightDarkButtonFooter = (LightDarkButtonFooter) getFooter();
+        lightDarkButtonFooter.addModeChangeListener(isDarkMode -> {
+            // event for light dark mode changed
+        });
+    }
     public static MyDrawerBuilder getInstance() {
         if (instance == null) {
             instance = new MyDrawerBuilder();
@@ -38,25 +45,55 @@ public class MyDrawerBuilder extends SimpleDrawerBuilder {
         return instance;
     }
 
+
     public ModelUser getUser() {
         return user;
     }
 
     public void setUser(ModelUser user) {
         boolean updateMenuItem = this.user == null || this.user.getRole() != user.getRole();
-
         this.user = user;
 
-        // set user to menu validation
         MyMenuValidation.setUser(user);
 
-        // setup drawer header
         SimpleHeader header = (SimpleHeader) getHeader();
         SimpleHeaderData data = header.getSimpleHeaderData();
-        AvatarIcon icon = (AvatarIcon) data.getIcon();
-        String iconName = user.getRole() == ModelUser.Role.ADMIN ? "avatar_male.svg" : "avatar_female.svg";
 
-        icon.setIcon(new FlatSVGIcon("raven/modal/demo/drawer/image/" + iconName, 100, 100));
+        AvatarIcon icon = null;
+
+        // 1. Try custom image from user’s avatar path
+        String customPath = user.getAvatarPath();
+        if (customPath != null && !customPath.isEmpty()) {
+            try {
+                if (customPath.toLowerCase().endsWith(".svg")) {
+                    FlatSVGIcon svgIcon = new FlatSVGIcon(customPath, 100, 100);
+                    icon = new AvatarIcon(svgIcon, 50, 50, 3.5f);
+                } else {
+                    java.io.File file = new java.io.File(customPath);
+                    if (file.exists()) {
+                        icon = new AvatarIcon(file.toURI().toURL(), 50, 50, 3.5f);
+                    }
+                }
+            } catch (Exception e) {
+                System.err.println("Failed to load custom avatar: " + e.getMessage());
+            }
+        }
+
+        // 2. Fallback to role‑based SVG
+        if (icon == null) {
+            String iconName = user.getRole() == ModelUser.Role.TEACHER ?
+                    "avatar_male.svg" : "avatar_female.svg";
+            FlatSVGIcon svgIcon = new FlatSVGIcon(
+                    "raven/modal/demo/drawer/image/" + iconName, 100, 100);
+            icon = new AvatarIcon(svgIcon, 50, 50, 3.5f);
+        }
+
+        // 3. Apply the same styling as the default header
+        icon.setType(AvatarIcon.Type.MASK_SQUIRCLE);
+        icon.setBorder(2, 2);
+        changeAvatarIconBorderColor(icon);
+
+        data.setIcon(icon);
         data.setTitle(user.getUserName());
         data.setDescription(user.getMail());
         header.setSimpleHeaderData(data);
@@ -64,14 +101,6 @@ public class MyDrawerBuilder extends SimpleDrawerBuilder {
         if (updateMenuItem) {
             rebuildMenu();
         }
-    }
-
-    private MyDrawerBuilder() {
-        super(createSimpleMenuOption());
-        LightDarkButtonFooter lightDarkButtonFooter = (LightDarkButtonFooter) getFooter();
-        lightDarkButtonFooter.addModeChangeListener(isDarkMode -> {
-            // event for light dark mode changed
-        });
     }
 
     @Override
@@ -121,46 +150,10 @@ public class MyDrawerBuilder extends SimpleDrawerBuilder {
                 new Item("Dashboard", "dashboard.svg", FormDashboard.class),
                 new Item.Label("SWING UI"),
                 new Item("Forms", "forms.svg")
-                        .subMenu("Input", FormInput.class)
-                        .subMenu("Table", FormTable.class)
-                        .subMenu("Responsive Layout", FormResponsiveLayout.class),
+                        .subMenu("Table", FormTable.class),
                 new Item("Components", "components.svg")
-                        .subMenu("Modal", FormModal.class)
-                        .subMenu("Toast", FormToast.class)
-                        .subMenu("Date Time", FormDateTime.class)
-                        .subMenu("Color Picker", FormColorPicker.class)
-                        .subMenu("Avatar Icon", FormAvatarIcon.class)
-                        .subMenu("Slide Pane", FormSlidePane.class),
-                new Item("Swing Pack", "pack.svg")
-                        .subMenu("Pagination", FormPagination.class)
-                        .subMenu("MultiSelect", FormMultiSelect.class),
-                new Item("Email", "email.svg")
-                        .subMenu("Inbox")
-                        .subMenu(
-                                new Item("Group Read")
-                                        .subMenu("Read 1")
-                                        .subMenu("Read 2")
-                                        .subMenu(
-                                                new Item("Group Item")
-                                                        .subMenu("Item 1")
-                                                        .subMenu("Item 2")
-                                                        .subMenu("Item 3")
-                                                        .subMenu("Item 4")
-                                                        .subMenu("Item 5")
-                                                        .subMenu("Item 6")
-                                        )
-                                        .subMenu("Read 3")
-                                        .subMenu("Read 4")
-                                        .subMenu("Read 5")
-                        )
-                        .subMenu("Compost"),
-                new Item("Chat", "chat.svg"),
-                new Item("Calendar", "calendar.svg"),
+                        .subMenu("Avatar Icon", FormAvatarIcon.class),
                 new Item.Label("OTHER"),
-                new Item("Plugin", "plugin.svg")
-                        .subMenu("Plugin 1")
-                        .subMenu("Plugin 2")
-                        .subMenu("Plugin 3"),
                 new Item("Setting", "setting.svg", FormSetting.class),
                 new Item("About", "about.svg"),
                 new Item("Logout", "logout.svg")
@@ -191,11 +184,11 @@ public class MyDrawerBuilder extends SimpleDrawerBuilder {
             System.out.println("Drawer menu selected " + Arrays.toString(index));
             Class<?> itemClass = action.getItem().getItemClass();
             int i = index[0];
-            if (i == 9) {
+            if (i == 4) {
                 action.consume();
                 FormManager.showAbout();
                 return;
-            } else if (i == 10) {
+            } else if (i == 5) {
                 action.consume();
                 FormManager.logout();
                 return;

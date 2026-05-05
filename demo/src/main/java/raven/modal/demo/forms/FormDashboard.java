@@ -17,8 +17,16 @@ import raven.modal.demo.sample.SampleData;
 import raven.modal.demo.system.Form;
 import raven.modal.demo.utils.SystemForm;
 
+import com.finals.db.DBConnection;
+
 import javax.swing.*;
+import javax.swing.table.DefaultTableModel;
 import java.awt.*;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.text.DecimalFormat;
 
 @SystemForm(name = "Dashboard", description = "dashboard form display some details")
 public class FormDashboard extends Form {
@@ -32,6 +40,7 @@ public class FormDashboard extends Form {
         createTitle();
         createPanelLayout();
         createCard();
+        createRecentTable();          // ← NEW: live recent submissions table
         createChart();
         createOtherChart();
     }
@@ -46,19 +55,123 @@ public class FormDashboard extends Form {
         loadData();
     }
 
+    /**
+     * Fetches real statistics from Aiven MySQL and updates the cards + recent table.
+     * Charts remain unchanged (sample data).
+     */
     private void loadData() {
-        // load data card
-        cardBox.setValueAt(0, "1,205", "+305 new registered", "+25%", true);
-        cardBox.setValueAt(1, "$52,420.55", "less then previous month", "-5%", false);
-        cardBox.setValueAt(2, "$3,180.00", "more then previous month", "+12%", true);
-        cardBox.setValueAt(3, "$49,240.55", "more then previous month", "+7%", true);
+        SwingWorker<Void, Void> worker = new SwingWorker<Void, Void>() {
+            private int total = 0, pending = 0, approved = 0, denied = 0;
+            private org.jfree.data.time.TimeSeriesCollection chartDataset;
 
-        // load data chart
-        timeSeriesChart.setDataset(SampleData.getTimeSeriesDataset());
-        candlestickChart.setDataset(SampleData.getOhlcDataset());
-        barChart.setDataset(SampleData.getCategoryDataset());
-        spiderChart.setDataset(SampleData.getCategoryDataset());
-        pieChart.setDataset(SampleData.getPieDataset());
+            @Override
+            protected Void doInBackground() throws Exception {
+                try (Connection conn = DBConnection.getMySQLConnection()) {
+                    if (conn == null) return null;
+
+                    // ---- Card statistics ----
+                    String countSql = "SELECT "
+                            + "COUNT(*) AS total, "
+                            + "SUM(CASE WHEN Status = 'Pending' THEN 1 ELSE 0 END) AS pending, "
+                            + "SUM(CASE WHEN Status = 'Approved' THEN 1 ELSE 0 END) AS approved, "
+                            + "SUM(CASE WHEN Status = 'Denied' THEN 1 ELSE 0 END) AS denied "
+                            + "FROM aclc_research_titles WHERE record_state = 'ACTIVE'";
+                    try (PreparedStatement ps = conn.prepareStatement(countSql);
+                        ResultSet rs = ps.executeQuery()) {
+                        if (rs.next()) {
+                            total = rs.getInt("total");
+                            pending = rs.getInt("pending");
+                            approved = rs.getInt("approved");
+                            denied = rs.getInt("denied");
+                        }
+                    }
+
+                    // ---- Recent submissions (last 5) ----
+                    recentModel.setRowCount(0);
+                    String recentSql = "SELECT `Research Title`, `SY-YR`, Status, `Approved by` "
+                            + "FROM aclc_research_titles WHERE record_state = 'ACTIVE' "
+                            + "ORDER BY last_updated DESC LIMIT 5";
+                    try (PreparedStatement ps = conn.prepareStatement(recentSql);
+                        ResultSet rs = ps.executeQuery()) {
+                        while (rs.next()) {
+                            recentModel.addRow(new Object[]{
+                                    rs.getString("Research Title"),
+                                    rs.getString("SY-YR"),
+                                    rs.getString("Status"),
+                                    rs.getString("Approved by")
+                            });
+                        }
+                    }
+
+                    // ---- Build approved/denied time series ----
+                    chartDataset = buildApprovalDeniedDataset(conn);
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+                return null;
+            }
+
+            @Override
+            protected void done() {
+                DecimalFormat fmt = new DecimalFormat("#,###");
+                cardBox.setValueAt(0, fmt.format(total), "Total Research Titles", "", true);
+                cardBox.setValueAt(1, fmt.format(pending), "Pending", "", false);
+                cardBox.setValueAt(2, fmt.format(approved), "Approved", "", true);
+                cardBox.setValueAt(3, fmt.format(denied), "Denied", "", false);
+
+                if (chartDataset != null) {
+                    timeSeriesChart.setDataset(chartDataset);
+
+                    org.jfree.chart.JFreeChart chart = timeSeriesChart.getFreeChart();
+                    chart.setTitle("Approved vs Denied Over Time");
+
+                    if (chart.getXYPlot() != null) {
+                        org.jfree.chart.axis.ValueAxis axis = chart.getXYPlot().getRangeAxis();
+                        if (axis instanceof org.jfree.chart.axis.NumberAxis) {
+                            org.jfree.chart.axis.NumberAxis numAxis = (org.jfree.chart.axis.NumberAxis) axis;
+                            numAxis.setNumberFormatOverride(new DecimalFormat("#,###"));
+                        }
+                    }
+                }
+
+                candlestickChart.setDataset(SampleData.getOhlcDataset());
+                barChart.setDataset(SampleData.getCategoryDataset());
+                spiderChart.setDataset(SampleData.getCategoryDataset());
+                pieChart.setDataset(SampleData.getPieDataset());
+            }
+                
+        };
+        worker.execute();
+    }
+    private org.jfree.data.time.TimeSeriesCollection buildApprovalDeniedDataset(Connection conn) throws SQLException {
+        org.jfree.data.time.TimeSeries approvedSeries = new org.jfree.data.time.TimeSeries("Approved");
+        org.jfree.data.time.TimeSeries deniedSeries  = new org.jfree.data.time.TimeSeries("Denied");
+
+        // Group by year and month of last_updated (or SY-YR if you prefer school years)
+        String sql = "SELECT YEAR(last_updated) AS yr, MONTH(last_updated) AS mth, " +
+                    "SUM(CASE WHEN Status = 'Approved' THEN 1 ELSE 0 END) AS approved_count, " +
+                    "SUM(CASE WHEN Status = 'Denied' THEN 1 ELSE 0 END) AS denied_count " +
+                    "FROM aclc_research_titles " +
+                    "WHERE record_state = 'ACTIVE' " +
+                    "GROUP BY yr, mth " +
+                    "ORDER BY yr, mth";
+
+        try (PreparedStatement ps = conn.prepareStatement(sql);
+            ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                int year  = rs.getInt("yr");
+                int month = rs.getInt("mth");
+                // JFreeChart Month is 1‑based
+                org.jfree.data.time.Month m = new org.jfree.data.time.Month(month, year);
+                approvedSeries.add(m, rs.getInt("approved_count"));
+                deniedSeries.add(m, rs.getInt("denied_count"));
+            }
+        }
+
+        org.jfree.data.time.TimeSeriesCollection dataset = new org.jfree.data.time.TimeSeriesCollection();
+        dataset.addSeries(approvedSeries);
+        dataset.addSeries(deniedSeries);
+        return dataset;
     }
 
     private void createTitle() {
@@ -103,12 +216,41 @@ public class FormDashboard extends Form {
     private void createCard() {
         JPanel panel = new JPanel(new MigLayout("fillx", "[fill]"));
         cardBox = new CardBox();
-        cardBox.addCardItem(createIcon("raven/modal/demo/icons/dashboard/customer.svg", DefaultChartTheme.getColor(0)), "Total Customer");
-        cardBox.addCardItem(createIcon("raven/modal/demo/icons/dashboard/income.svg", DefaultChartTheme.getColor(1)), "Total Income");
-        cardBox.addCardItem(createIcon("raven/modal/demo/icons/dashboard/expense.svg", DefaultChartTheme.getColor(2)), "Total Expense");
-        cardBox.addCardItem(createIcon("raven/modal/demo/icons/dashboard/profit.svg", DefaultChartTheme.getColor(3)), "Last Profit");
+        cardBox.addCardItem(createIcon("raven/modal/demo/icons/dashboard/customer.svg", DefaultChartTheme.getColor(0)), "");
+        cardBox.addCardItem(createIcon("raven/modal/demo/icons/dashboard/income.svg", DefaultChartTheme.getColor(1)), "");
+        cardBox.addCardItem(createIcon("raven/modal/demo/icons/dashboard/expense.svg", DefaultChartTheme.getColor(2)), "");
+        cardBox.addCardItem(createIcon("raven/modal/demo/icons/dashboard/profit.svg", DefaultChartTheme.getColor(3)), "");
         panel.add(cardBox);
         panelLayout.add(panel);
+    }
+
+    // -- NEW: Recent submissions table --
+    private void createRecentTable() {
+        JPanel panel = new JPanel(new MigLayout("fillx,wrap,insets 10 0 0 0", "[fill]", "[][fill,grow]"));
+        JLabel lbl = new JLabel("Recent Submissions");
+        lbl.putClientProperty(FlatClientProperties.STYLE, "font:bold +2");
+        panel.add(lbl);
+
+        recentModel = new DefaultTableModel(new Object[]{"Title", "SY‑YR", "Status", "Approved by"}, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) { return false; }
+        };
+        recentTable = new JTable(recentModel);
+        JScrollPane scrollPane = new JScrollPane(recentTable);
+        scrollPane.setBorder(BorderFactory.createEmptyBorder());
+        recentTable.setRowHeight(28);
+        recentTable.getTableHeader().putClientProperty(FlatClientProperties.STYLE, "" +
+                "height:30;" +
+                "hoverBackground:null;" +
+                "pressedBackground:null;");
+        recentTable.putClientProperty(FlatClientProperties.STYLE, "" +
+                "showHorizontalLines:true;" +
+                "intercellSpacing:0,1;");
+        scrollPane.getVerticalScrollBar().putClientProperty(FlatClientProperties.STYLE, "" +
+                "width:5;" +
+                "trackArc:$ScrollBar.thumbArc;");
+        panel.add(scrollPane, "grow, push");
+        panelLayout.add(panel);   // inserted between cards and charts
     }
 
     private void createChart() {
@@ -147,6 +289,7 @@ public class FormDashboard extends Form {
         return new FlatSVGIcon(icon, 0.4f).setColorFilter(new FlatSVGIcon.ColorFilter(color1 -> color));
     }
 
+    // --- Fields ---
     private JPanel panelLayout;
     private CardBox cardBox;
 
@@ -156,6 +299,11 @@ public class FormDashboard extends Form {
     private SpiderChart spiderChart;
     private PieChart pieChart;
 
+    // NEW: recent submissions table
+    private JTable recentTable;
+    private DefaultTableModel recentModel;
+
+    // --- DashboardLayout (unchanged) ---
     private class DashboardLayout implements LayoutManager {
 
         private int gap = 0;

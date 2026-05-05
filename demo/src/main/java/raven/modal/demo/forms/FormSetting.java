@@ -26,11 +26,11 @@ import raven.modal.drawer.simple.SimpleDrawerBuilder;
 import raven.modal.option.LayoutOption;
 import raven.modal.option.Location;
 import raven.modal.option.Option;
-
 import javax.swing.*;
 import javax.swing.border.TitledBorder;
 import java.awt.*;
 import java.awt.event.ActionEvent;
+
 
 @SystemForm(name = "Setting", description = "application setting and configuration", tags = {"themes", "options"})
 public class FormSetting extends Form {
@@ -282,7 +282,7 @@ public class FormSetting extends Form {
         });
         return button;
     }
-
+    
     private Component createDrawerStyle() {
         JPanel panel = new JPanel(new MigLayout("insets 0,filly", "[][][grow,fill]", "[fill]"));
         JPanel lineStyle = new JPanel(new MigLayout("wrap", "[200]"));
@@ -362,7 +362,7 @@ public class FormSetting extends Form {
         panel.add(lineColorOption);
         return panel;
     }
-
+ 
     private void setDrawerLineStyle(boolean curved, boolean round, boolean color) {
         AbstractDrawerLineStyleRenderer style;
         if (curved) {
@@ -432,5 +432,7 @@ public class FormSetting extends Form {
         return panel;
     }
 
+
+    // Calendar tab components
     private JTabbedPane tabbedPane;
 }

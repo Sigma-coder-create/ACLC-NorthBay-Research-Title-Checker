@@ -2,6 +2,17 @@ package raven.modal.demo.model;
 
 public class ModelUser {
 
+    private String userName;
+    private String mail;
+    private Role role;
+    private String avatarPath;   // NEW: path to custom avatar image (jpg, png, svg, etc.)
+
+    public ModelUser(String userName, String mail, Role role) {
+        this.userName = userName;
+        this.mail = mail;
+        this.role = role;
+    }
+
     public String getUserName() {
         return userName;
     }
@@ -26,25 +37,21 @@ public class ModelUser {
         this.role = role;
     }
 
-    public ModelUser(String userName, String mail, Role role) {
-        this.userName = userName;
-        this.mail = mail;
-        this.role = role;
+    // NEW getter and setter for avatarPath
+    public String getAvatarPath() {
+        return avatarPath;
     }
 
-    private String userName;
-    private String mail;
-    private Role role;
+    public void setAvatarPath(String avatarPath) {
+        this.avatarPath = avatarPath;
+    }
 
     public enum Role {
-        ADMIN, STAFF;
+        TEACHER, STUDENT;
 
         @Override
         public String toString() {
-            if (this == ADMIN) {
-                return "Admin";
-            }
-            return "Staff";
+            return this == TEACHER ? "Teacher" : "Student";
         }
     }
 }

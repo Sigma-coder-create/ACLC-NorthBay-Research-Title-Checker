@@ -6,7 +6,6 @@ import java.util.stream.Collectors;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import static raven.modal.demo.utils.DemoPreferences.isSuggestionsEnabled;
-
 import raven.modal.demo.utils.DemoPreferences;
 
 public class SimilarityUtil {
@@ -95,18 +94,20 @@ public class SimilarityUtil {
     /** Now queries MySQL directly */
     public static List<TimeLimit> getDetailedSimilarTitles(String inputTitle) {
         List<TimeLimit> results = new ArrayList<>();
-        String sql = "SELECT `Research Title`, `SY-YR` FROM ACLC_research_titles";
+        String sql = "SELECT `ID`, `Research Title`, `SY-YR` FROM aclc_research_titles";
 
         try (Connection con = DBConnection.getMySQLConnection();
              PreparedStatement ps = con.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
 
             while (rs.next()) {
+                int id = rs.getInt("ID");
                 String title = rs.getString("Research Title");
                 String dateStr = rs.getString("SY-YR");
                 double score = calculateSimilarity(inputTitle, title);
                 if (score > 0.4) {
-                    results.add(new TimeLimit(title, score, "Database", dateStr));
+                    TimeLimit tl = new TimeLimit(title, score, "Database", dateStr, id);
+                results.add(tl);
                 }
             }
         } catch (SQLException e) {
@@ -135,7 +136,7 @@ public class SimilarityUtil {
         return webTitles;
     }
     private static void collectTitlesFromConn(Connection conn, List<String> out) {
-        try (PreparedStatement ps = conn.prepareStatement("SELECT `Research Title` FROM ACLC_research_titles");
+        try (PreparedStatement ps = conn.prepareStatement("SELECT `Research Title` FROM aclc_research_titles");
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
                 String t = rs.getString(1);

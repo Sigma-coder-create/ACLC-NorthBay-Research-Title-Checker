@@ -146,10 +146,6 @@ public class ValidationDrawerBuilder extends SimpleDrawerBuilder {
                 new Item("Chat", "chat.svg"),
                 new Item("Calendar", "calendar.svg"),
                 new Item.Label("OTHER"),
-                new Item("Plugin", "plugin.svg")
-                        .subMenu("Plugin 1")
-                        .subMenu("Plugin 2")
-                        .subMenu("Plugin 3"),
                 new Item("Setting", "setting.svg", FormSetting.class),
                 new Item("About", "about.svg"),
                 new Item("Logout", "logout.svg")

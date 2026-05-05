@@ -129,7 +129,7 @@ public class FormInput extends Form {
     }
 
     /**
-     * Fetches sections from Best_Section_ICT_C that contain the given strand
+     * Fetches sections from best_section_ict_c that contain the given strand
      * (e.g. "ICT" matches "ICT C", "ICT A"; "GAS" matches "GAS A" etc.).
      * If strand is empty, the combo is disabled and cleared.
      */
@@ -141,7 +141,7 @@ public class FormInput extends Form {
             return;
         }
 
-        // Load from MySQL only (where Best_Section_ICT_C exists)
+        // Load from MySQL only (where best_section_ict_c exists)
         try (Connection conn = DBConnection.getMySQLConnection()) {
             if (conn == null) {
                 sectionCombo.setEnabled(false);
@@ -149,7 +149,7 @@ public class FormInput extends Form {
                 return;
             }
 
-            String sql = "SELECT id, name FROM `Best_Section_ICT_C` WHERE name LIKE ? ORDER BY name";
+            String sql = "SELECT id, name FROM `best_section_ict_c` WHERE name LIKE ? ORDER BY name";
             try (PreparedStatement ps = conn.prepareStatement(sql)) {
                 ps.setString(1, "%" + strand + "%");
                 try (ResultSet rs = ps.executeQuery()) {
@@ -241,7 +241,7 @@ public class FormInput extends Form {
             return;
         }
 
-        String sql = "INSERT INTO ACLC_research_titles (`Research Title`, `SY-YR`, `Status`, `Approved by`, " +
+        String sql = "INSERT INTO aclc_research_titles (`Research Title`, `SY-YR`, `Status`, `Approved by`, " +
                      "`Applied`, `Strand`, `Software`, `Webpage`, `section_id`, record_state, last_updated) " +
                      "VALUES (?, ?, 'Pending', NULL, ?, ?, ?, ?, ?, 'ACTIVE', NOW())";
 

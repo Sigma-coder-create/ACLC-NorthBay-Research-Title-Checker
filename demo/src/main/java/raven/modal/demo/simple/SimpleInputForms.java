@@ -75,7 +75,7 @@ public class SimpleInputForms extends JPanel {
             }
         });
     }
-
+    
     private void createTitle(String title) {
         JLabel lb = new JLabel(title);
         lb.putClientProperty(FlatClientProperties.STYLE, "" +

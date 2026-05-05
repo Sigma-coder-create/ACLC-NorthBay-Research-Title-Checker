@@ -6,33 +6,26 @@ import com.formdev.flatlaf.extras.FlatSVGIcon;
 import net.miginfocom.swing.MigLayout;
 import raven.modal.ModalDialog;
 import raven.modal.component.SimpleModalBorder;
-import raven.modal.demo.model.ModelEmployee;
-import raven.modal.demo.model.ModelProfile;
-import raven.modal.demo.sample.SampleData;
-import raven.modal.demo.simple.SimpleInputForms;
 import raven.modal.demo.system.Form;
 import raven.modal.demo.utils.SystemForm;
 import raven.modal.demo.utils.table.TableHeaderAlignment;
-import raven.modal.demo.utils.table.TableProfileCellRenderer;
 import raven.modal.demo.utils.table.CheckBoxTableHeaderRenderer;
 import raven.modal.option.Location;
 import raven.modal.option.Option;
 import raven.swingpack.JPagination;
-import raven.modal.demo.forms.FormToast;
 import raven.modal.Toast;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
+import com.finals.db.SimilarityUtil;
+import com.finals.db.TimeLimit;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableRowSorter;
-
 import java.awt.*;
-import java.io.IOException;
-import java.io.InputStream;
 import java.sql.*;
 import java.text.DecimalFormat;
-import java.util.Properties;
+import java.util.Vector;
 
 @SystemForm(name = "Table", description = "table is a user interface component", tags = {"list"})
 public class FormTable extends Form {
@@ -63,7 +56,36 @@ public class FormTable extends Form {
             }
         };
         basicTable.setModel(model);
+
+        // ---------- column widths (after setModel) ----------
+        basicTable.setAutoResizeMode(JTable.AUTO_RESIZE_SUBSEQUENT_COLUMNS);
+
+        basicTable.getColumnModel().getColumn(0).setPreferredWidth(40);
         basicTable.getColumnModel().getColumn(0).setMaxWidth(50);
+
+        basicTable.getColumnModel().getColumn(1).setPreferredWidth(300);    // no max, can grow
+
+        basicTable.getColumnModel().getColumn(2).setPreferredWidth(80);
+        basicTable.getColumnModel().getColumn(2).setMaxWidth(120);
+
+        basicTable.getColumnModel().getColumn(3).setPreferredWidth(90);
+        basicTable.getColumnModel().getColumn(3).setMaxWidth(120);
+
+        basicTable.getColumnModel().getColumn(4).setPreferredWidth(170);
+        basicTable.getColumnModel().getColumn(4).setMaxWidth(400);
+
+        basicTable.getColumnModel().getColumn(5).setPreferredWidth(80);
+        basicTable.getColumnModel().getColumn(5).setMaxWidth(120);
+
+        basicTable.getColumnModel().getColumn(6).setPreferredWidth(60);
+        basicTable.getColumnModel().getColumn(6).setMaxWidth(100);
+
+        basicTable.getColumnModel().getColumn(7).setPreferredWidth(70);
+        basicTable.getColumnModel().getColumn(7).setMaxWidth(100);
+
+        basicTable.getColumnModel().getColumn(8).setPreferredWidth(70);
+        basicTable.getColumnModel().getColumn(8).setMaxWidth(100);
+
         formRefresh();
     }
 
@@ -91,7 +113,7 @@ public class FormTable extends Form {
                 whereClause.append(" AND section_id = ?");
             }
 
-            String countSql = "SELECT COUNT(*) FROM ACLC_research_titles " + whereClause;
+            String countSql = "SELECT COUNT(*) FROM aclc_research_titles " + whereClause;
             try (PreparedStatement pstmt = conn.prepareStatement(countSql)) {
                 int paramIndex = 1;
                 if (!search.isEmpty()) {
@@ -114,7 +136,7 @@ public class FormTable extends Form {
                 }
             }
 
-            String dataSql = "SELECT * FROM ACLC_research_titles " + whereClause + " LIMIT ? OFFSET ?";
+            String dataSql = "SELECT * FROM aclc_research_titles " + whereClause + " LIMIT ? OFFSET ?";
             try (PreparedStatement pstmt = conn.prepareStatement(dataSql)) {
                 int paramIndex = 1;
                 if (!search.isEmpty()) {
@@ -164,8 +186,8 @@ public class FormTable extends Form {
             }
 
             String sql = "SELECT s.id, s.name, s.created_at, COUNT(t.ID) as cnt "
-                       + "FROM `Best_Section_ICT_C` s "
-                       + "LEFT JOIN `ACLC_research_titles` t ON s.id = t.section_id AND t.record_state = 'ACTIVE' "
+                       + "FROM `best_section_ict_c` s "
+                       + "LEFT JOIN `aclc_research_titles` t ON s.id = t.section_id AND t.record_state = 'ACTIVE' "
                        + "WHERE " + where + " "
                        + "GROUP BY s.id, s.name, s.created_at "
                        + "ORDER BY s.created_at DESC";
@@ -286,62 +308,283 @@ public class FormTable extends Form {
         JButton btnDelete = new JButton("Delete");
         btnEdit.addActionListener(e -> editSelected());
         btnDelete.addActionListener(e -> deleteSelected());
-
+        JButton btnTest = new JButton("Test");
+        JButton btnScanAll = new JButton("Scan All");
+        
         panel.add(txtBasicSearch, "growx");
         panel.add(btnShowAll);
         panel.add(btnEdit);
         panel.add(btnDelete);
+        panel.add(btnTest); 
+        panel.add(btnScanAll);
+        btnScanAll.addActionListener(e -> {
+            int choice = JOptionPane.showConfirmDialog(this,
+                    "Run a full duplicate scan on ALL titles? This may take a moment.",
+                    "Full Duplicate Scan", JOptionPane.YES_NO_OPTION);
+            if (choice == JOptionPane.YES_OPTION) {
+                runDuplicateTest();
+            }
+        });
+        btnTest.addActionListener(e -> {
+            int row = basicTable.getSelectedRow();
+            if (row == -1) {
+                JOptionPane.showMessageDialog(this,
+                        "Please select a research title first.",
+                        "No Selection", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+
+            // Get both the ID and the title from the selected row
+            int selectedId = (int) basicTable.getValueAt(row, 0);      // column 0 = ID
+            String selectedTitle = (String) basicTable.getValueAt(row, 1);
+            if (selectedTitle == null || selectedTitle.trim().isEmpty()) {
+                JOptionPane.showMessageDialog(this,
+                        "Selected title is empty.",
+                        "Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
+            // Save the selected ID for filtering inside the worker
+            final int currentId = selectedId;
+
+            SwingWorker<Void, Void> worker = new SwingWorker<Void, Void>() {
+                private final java.util.List<TimeLimit> results = new java.util.ArrayList<>();
+
+                @Override
+                protected Void doInBackground() throws Exception {
+                    java.util.List<TimeLimit> raw = SimilarityUtil.getDetailedSimilarTitles(selectedTitle);
+                    for (TimeLimit t : raw) {
+                        // Exclude exact matches and also the row with the same ID
+                        if (t.score >= 0.7 && t.score < 1.0 && t.id != currentId) {
+                            results.add(t);
+                        }
+                    }
+                    return null;
+                }
+
+                @Override
+                protected void done() {
+                    if (results.isEmpty()) {
+                        JOptionPane.showMessageDialog(FormTable.this,
+                                "No very similar titles found (70%-99% match).",
+                                "Test Result", JOptionPane.INFORMATION_MESSAGE);
+                    } else {
+                        showSingleTitleTestDialog(selectedTitle, results);
+                    }
+                }
+            };
+            worker.execute();
+        });
         panel.putClientProperty(FlatClientProperties.STYLE, "background:null;");
         return panel;
     }
+    
+    private void runDuplicateTest() {
+        SwingWorker<Void, Void> worker = new SwingWorker<Void, Void>() {
+            private final java.util.List<DuplicateResult> duplicates = new java.util.ArrayList<>();
 
-    private void editSelected() {
-        int row = basicTable.getSelectedRow();
-        if (row == -1) {
-            showToast("Please select a row to edit.", "warning");
-            return;
-        }
-        DefaultTableModel model = (DefaultTableModel) basicTable.getModel();
-        int id = (int) model.getValueAt(row, 0);
-        String title = (String) model.getValueAt(row, 1);
-        String syyr = (String) model.getValueAt(row, 2);
-        String status = (String) model.getValueAt(row, 3);
-        String approved = (String) model.getValueAt(row, 4);
-        String applied = (String) model.getValueAt(row, 5);
-        String strand = (String) model.getValueAt(row, 6);
-        String software = (String) model.getValueAt(row, 7);
-        String webpage = (String) model.getValueAt(row, 8);
+            @Override
+            protected Void doInBackground() throws Exception {
+                SimilarityUtil.initializeFromDatabases();
 
-        EditResearchPanel editPanel = new EditResearchPanel(title, syyr, status, approved, applied, strand, software, webpage);
-        Option option = ModalDialog.createOption();
-        option.getLayoutOption().setSize(-1, 1f)
-                .setLocation(Location.CENTER, Location.CENTER);
-        ModalDialog.showModal(this, new SimpleModalBorder(editPanel, "Edit Research Title", SimpleModalBorder.YES_NO_OPTION,
-                (controller, action) -> {
-                    if (action == SimpleModalBorder.YES_OPTION) {
-                        try (Connection conn = DBConnection.getMySQLConnection()) {
-                            if (conn == null) return;
-                            String sql = "UPDATE ACLC_research_titles SET `Research Title`=?, `SY-YR`=?, Status=?, `Approved by`=?, Applied=?, Strand=?, Software=?, Webpage=? WHERE ID=?";
-                            try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
-                                pstmt.setString(1, editPanel.getTitleText());
-                                pstmt.setString(2, editPanel.getSyYrText());
-                                pstmt.setString(3, editPanel.getStatusText());
-                                pstmt.setString(4, editPanel.getApprovedByText());
-                                pstmt.setString(5, editPanel.getAppliedText());
-                                pstmt.setString(6, editPanel.getStrandText());
-                                pstmt.setString(7, editPanel.getSoftwareText());
-                                pstmt.setString(8, editPanel.getWebpageText());
-                                pstmt.setInt(9, id);
-                                pstmt.executeUpdate();
-                            }
-                            showToast("Record updated successfully.", "success");
-                            formRefresh();
-                        } catch (SQLException ex) {
-                            ex.printStackTrace();
-                            showToast("Update failed: " + ex.getMessage(), "error");
+                java.util.List<TitleRecord> titles = new java.util.ArrayList<>();
+                try (Connection conn = DBConnection.getMySQLConnection()) {
+                    if (conn == null) return null;
+                    String sql = "SELECT `Research Title`, `SY-YR` FROM aclc_research_titles WHERE record_state = 'ACTIVE'";
+                    try (Statement stmt = conn.createStatement();
+                        ResultSet rs = stmt.executeQuery(sql)) {
+                        while (rs.next()) {
+                            titles.add(new TitleRecord(rs.getString("Research Title"), rs.getString("SY-YR")));
                         }
                     }
-                }), option);
+                } catch (SQLException ex) {
+                    ex.printStackTrace();
+                    return null;
+                }
+
+                // Compare all pairs
+                for (int i = 0; i < titles.size(); i++) {
+                    for (int j = i + 1; j < titles.size(); j++) {
+                        TitleRecord a = titles.get(i);
+                        TitleRecord b = titles.get(j);
+                        double score = SimilarityUtil.calculateSimilarity(a.title, b.title);
+                        if (score >= 0.7 && score < 1.0) {
+                            duplicates.add(new DuplicateResult(a.title, a.syYr, b.title, b.syYr, score));
+                        }
+                    }
+                }
+                return null;
+            }
+
+            @Override
+            protected void done() {
+                if (duplicates.isEmpty()) {
+                    JOptionPane.showMessageDialog(FormTable.this,
+                            "No duplicates found (threshold 70%).", "Test Result", JOptionPane.INFORMATION_MESSAGE);
+                } else {
+                    showDuplicateDialog(duplicates);
+                }
+            }
+        };
+        worker.execute();
+    }
+
+    // Helper classes (should be placed inside FormTable class, not inside a method)
+    private static class TitleRecord {
+        String title;
+        String syYr;
+        TitleRecord(String t, String s) { title = t; syYr = s; }
+    }
+
+    private static class DuplicateResult {
+        String title1, syYr1, title2, syYr2;
+        double similarity;
+        DuplicateResult(String t1, String s1, String t2, String s2, double sim) {
+            title1 = t1; syYr1 = s1;
+            title2 = t2; syYr2 = s2;
+            similarity = sim;
+        }
+    }
+    private void showSingleTitleTestDialog(String queryTitle, java.util.List<TimeLimit> matches) {
+    JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this),
+                "Similarity Check for: " + truncate(queryTitle, 60), true);
+        dialog.setLayout(new BorderLayout());
+
+        JLabel header = new JLabel("Matches for: " + queryTitle);
+        header.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        dialog.add(header, BorderLayout.NORTH);
+
+        String[] columnNames = {"Matched Title", "Year", "Similarity"};
+        DefaultTableModel model = new DefaultTableModel(columnNames, 0);
+        for (TimeLimit m : matches) {
+            model.addRow(new Object[]{
+                    m.title,
+                    m.dateStr,   // or m.dateStr if the field is named differently
+                    String.format("%.0f%%", m.score * 100)
+            });
+        }
+
+        JTable table = new JTable(model);
+        table.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
+        table.getColumnModel().getColumn(0).setPreferredWidth(450);
+        table.getColumnModel().getColumn(1).setPreferredWidth(80);
+        table.getColumnModel().getColumn(2).setPreferredWidth(100);
+        JScrollPane scrollPane = new JScrollPane(table);
+        scrollPane.setPreferredSize(new Dimension(700, 300));
+        dialog.add(scrollPane, BorderLayout.CENTER);
+
+        JButton closeBtn = new JButton("Close");
+        closeBtn.addActionListener(e -> dialog.dispose());
+        JPanel bottom = new JPanel();
+        bottom.add(closeBtn);
+        dialog.add(bottom, BorderLayout.SOUTH);
+
+        dialog.pack();
+        dialog.setLocationRelativeTo(this);
+        dialog.setVisible(true);
+    }
+
+    private String truncate(String s, int len) {
+        if (s == null) return "";
+        return s.length() <= len ? s : s.substring(0, len - 3) + "...";
+    }
+    private void showDuplicateDialog(java.util.List<DuplicateResult> duplicates) {
+        JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Duplicate Detection Results", true);
+        dialog.setLayout(new BorderLayout());
+
+        String[] columnNames = {"Title 1", "Year 1", "Title 2", "Year 2", "Similarity"};
+        DefaultTableModel model = new DefaultTableModel(columnNames, 0);
+        for (DuplicateResult d : duplicates) {
+            model.addRow(new Object[]{
+                    d.title1, d.syYr1,
+                    d.title2, d.syYr2,
+                    String.format("%.0f%%", d.similarity * 100)
+            });
+        }
+
+        JTable table = new JTable(model);
+        table.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
+        table.getColumnModel().getColumn(0).setPreferredWidth(300);
+        table.getColumnModel().getColumn(2).setPreferredWidth(300);
+        JScrollPane scrollPane = new JScrollPane(table);
+        scrollPane.setPreferredSize(new Dimension(900, 400));
+        dialog.add(scrollPane, BorderLayout.CENTER);
+
+        JButton closeBtn = new JButton("Close");
+        closeBtn.addActionListener(e -> dialog.dispose());
+        JPanel bottom = new JPanel();
+        bottom.add(closeBtn);
+        dialog.add(bottom, BorderLayout.SOUTH);
+
+        dialog.pack();
+        dialog.setLocationRelativeTo(this);
+        dialog.setVisible(true);
+    }
+    private void editSelected() {
+    int row = basicTable.getSelectedRow();
+    if (row == -1) {
+        showToast("Please select a row to edit.", "warning");
+        return;
+    }
+
+    DefaultTableModel model = (DefaultTableModel) basicTable.getModel();
+    int id = (int) model.getValueAt(row, 0);
+    String title = (String) model.getValueAt(row, 1);
+    String syyr = (String) model.getValueAt(row, 2);
+    String status = (String) model.getValueAt(row, 3);
+    String approved = (String) model.getValueAt(row, 4);
+    String applied = (String) model.getValueAt(row, 5);
+    String strand = (String) model.getValueAt(row, 6);
+    String software = (String) model.getValueAt(row, 7);
+    String webpage = (String) model.getValueAt(row, 8);
+
+    // Retrieve current section_id
+    int currentSectionId = -1;
+    try (Connection conn = DBConnection.getMySQLConnection()) {
+        if (conn != null) {
+            PreparedStatement ps = conn.prepareStatement("SELECT section_id FROM aclc_research_titles WHERE ID = ?");
+            ps.setInt(1, id);
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) {
+                currentSectionId = rs.getInt("section_id");
+            }
+        }
+    } catch (SQLException ex) {
+        ex.printStackTrace();
+    }
+
+    EditResearchPanel editPanel = new EditResearchPanel(title, syyr, status, approved, applied, strand, software, webpage, currentSectionId);
+    Option option = ModalDialog.createOption();
+    option.getLayoutOption().setSize(-1, 1f).setLocation(Location.CENTER, Location.CENTER);
+
+    ModalDialog.showModal(this, new SimpleModalBorder(editPanel, "Edit Research Title",
+            SimpleModalBorder.YES_NO_OPTION,
+            (controller, action) -> {
+                if (action == SimpleModalBorder.YES_OPTION) {
+                    try (Connection conn = DBConnection.getMySQLConnection()) {
+                        if (conn == null) return;
+                        String sql = "UPDATE aclc_research_titles SET `Research Title`=?, `SY-YR`=?, Status=?, `Approved by`=?, Applied=?, Strand=?, Software=?, Webpage=?, section_id=? WHERE ID=?";
+                        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                            pstmt.setString(1, editPanel.getTitleText());
+                            pstmt.setString(2, editPanel.getSyYrText());
+                            pstmt.setString(3, editPanel.getStatusText());
+                            pstmt.setString(4, editPanel.getApprovedByText());
+                            pstmt.setString(5, editPanel.getAppliedText());
+                            pstmt.setString(6, editPanel.getStrandText());
+                            pstmt.setString(7, editPanel.getSoftwareText());
+                            pstmt.setString(8, editPanel.getWebpageText());
+                            pstmt.setInt(9, editPanel.getSectionId());
+                            pstmt.setInt(10, id);
+                            pstmt.executeUpdate();
+                        }
+                        showToast("Record updated successfully.", "success");
+                        formRefresh();
+                    } catch (SQLException ex) {
+                        ex.printStackTrace();
+                        showToast("Update failed: " + ex.getMessage(), "error");
+                    }
+                }
+            }), option);
     }
 
     private void deleteSelected() {
@@ -355,7 +598,7 @@ public class FormTable extends Form {
         if (confirm == JOptionPane.YES_OPTION) {
             try (Connection conn = DBConnection.getMySQLConnection()) {
                 if (conn == null) return;
-                String sql = "UPDATE ACLC_research_titles SET record_state='DELETED' WHERE ID=?";
+                String sql = "UPDATE aclc_research_titles SET record_state='DELETED' WHERE ID=?";
                 try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
                     pstmt.setInt(1, id);
                     pstmt.executeUpdate();
@@ -369,47 +612,137 @@ public class FormTable extends Form {
         }
     }
 
-    private static class EditResearchPanel extends JPanel {
-        private JTextField txtTitle, txtSyYr, txtStatus, txtApproved, txtApplied, txtStrand, txtSoftware, txtWebpage;
+    private class EditResearchPanel extends JPanel {
+        private JTextField txtTitle, txtSyYr, txtStatus, txtApproved;
+        private JComboBox<String> strandCombo, appliedCombo, softwareCombo, webpageCombo;
+        private JComboBox<SectionItem> sectionCombo;
 
-        public EditResearchPanel(String title, String syyr, String status, String approved, String applied, String strand, String software, String webpage) {
-            setLayout(new MigLayout("wrap 2", "[right][fill,grow]", "[]10[]"));
-            txtTitle = new JTextField(title);
-            txtSyYr = new JTextField(syyr);
-            txtStatus = new JTextField(status);
-            txtApproved = new JTextField(approved);
-            txtApplied = new JTextField(applied);
-            txtStrand = new JTextField(strand);
-            txtSoftware = new JTextField(software);
-            txtWebpage = new JTextField(webpage);
-
-            add(new JLabel("Research Title:"));
-            add(txtTitle);
-            add(new JLabel("SY-YR:"));
-            add(txtSyYr);
-            add(new JLabel("Status:"));
-            add(txtStatus);
-            add(new JLabel("Approved by:"));
-            add(txtApproved);
-            add(new JLabel("Applied:"));
-            add(txtApplied);
-            add(new JLabel("Strand:"));
-            add(txtStrand);
-            add(new JLabel("Software:"));
-            add(txtSoftware);
-            add(new JLabel("Webpage:"));
-            add(txtWebpage);
+        // Simple inner class for section id+name
+        private class SectionItem {
+            int id;
+            String name;
+            SectionItem(int id, String name) { this.id = id; this.name = name; }
+            public String toString() { return name; }
         }
 
+        public EditResearchPanel(String title, String syyr, String status, String approved,
+                                String applied, String strand, String software, String webpage, int currentSectionId) {
+            setLayout(new MigLayout("wrap 2, insets 10", "[right][fill,grow]", "[]10[]"));
+
+            // Title
+            add(new JLabel("Research Title:"));
+            txtTitle = new JTextField(title);
+            add(txtTitle, "growx");
+
+            // SY-YR
+            add(new JLabel("SY-YR:"));
+            txtSyYr = new JTextField(syyr);
+            add(txtSyYr, "growx");
+
+            // Status
+            add(new JLabel("Status:"));
+            txtStatus = new JTextField(status);
+            add(txtStatus, "growx");
+
+            // Approved by
+            add(new JLabel("Approved by:"));
+            txtApproved = new JTextField(approved);
+            add(txtApproved, "growx");
+
+            // Applied (combo)
+            add(new JLabel("Applied:"));
+            String[] appliedOptions = {"Yes", "Not yet", "No"};
+            appliedCombo = new JComboBox<>(appliedOptions);
+            appliedCombo.setSelectedItem(applied);
+            add(appliedCombo, "growx");
+
+            // Strand (combo) – triggers section reload
+            add(new JLabel("Strand:"));
+            String[] strands = {"", "ICT", "GAS"};
+            strandCombo = new JComboBox<>(strands);
+            strandCombo.setSelectedItem(strand);
+            add(strandCombo, "growx");
+
+            // Section (combo) – initially loaded based on current strand
+            add(new JLabel("Section:"));
+            sectionCombo = new JComboBox<>();
+            add(sectionCombo, "growx");
+
+            // Software (combo)
+            add(new JLabel("Software:"));
+            String[] yesNo = {"✔", "✘"};
+            softwareCombo = new JComboBox<>(yesNo);
+            softwareCombo.setSelectedItem(software);
+            add(softwareCombo, "growx");
+
+            // Webpage (combo)
+            add(new JLabel("Webpage:"));
+            webpageCombo = new JComboBox<>(yesNo);
+            webpageCombo.setSelectedItem(webpage);
+            add(webpageCombo, "growx");
+
+            // Load sections for the initial strand, and select the current section if possible
+            loadSectionsForStrand(strand);
+            for (int i = 0; i < sectionCombo.getItemCount(); i++) {
+                SectionItem item = sectionCombo.getItemAt(i);
+                if (item != null && item.id == currentSectionId) {
+                    sectionCombo.setSelectedItem(item);
+                    break;
+                }
+            }
+
+            strandCombo.addActionListener(e -> loadSectionsForStrand((String) strandCombo.getSelectedItem()));
+        }
+
+        private void loadSectionsForStrand(String strand) {
+            sectionCombo.removeAllItems();
+            if (strand == null || strand.isEmpty()) {
+                sectionCombo.setEnabled(false);
+                return;
+            }
+            try (Connection conn = DBConnection.getMySQLConnection()) {
+                if (conn == null) {
+                    sectionCombo.setEnabled(false);
+                    return;
+                }
+                String sql = "SELECT id, name FROM `best_section_ict_c` WHERE name LIKE ? ORDER BY name";
+                try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                    ps.setString(1, "%" + strand + "%");
+                    try (ResultSet rs = ps.executeQuery()) {
+                        boolean hasItems = false;
+                        while (rs.next()) {
+                            int id = rs.getInt("id");
+                            String name = rs.getString("name");
+                            sectionCombo.addItem(new SectionItem(id, name));
+                            hasItems = true;
+                        }
+                        if (!hasItems) {
+                            sectionCombo.addItem(new SectionItem(-1, "No sections found"));
+                        }
+                    }
+                }
+                sectionCombo.setEnabled(true);
+            } catch (SQLException ex) {
+                ex.printStackTrace();
+                sectionCombo.setEnabled(false);
+            }
+        }
+
+        // Getters
         public String getTitleText() { return txtTitle.getText(); }
         public String getSyYrText() { return txtSyYr.getText(); }
         public String getStatusText() { return txtStatus.getText(); }
         public String getApprovedByText() { return txtApproved.getText(); }
-        public String getAppliedText() { return txtApplied.getText(); }
-        public String getStrandText() { return txtStrand.getText(); }
-        public String getSoftwareText() { return txtSoftware.getText(); }
-        public String getWebpageText() { return txtWebpage.getText(); }
+        public String getAppliedText() { return (String) appliedCombo.getSelectedItem(); }
+        public String getStrandText() { return (String) strandCombo.getSelectedItem(); }
+        public String getSoftwareText() { return (String) softwareCombo.getSelectedItem(); }
+        public String getWebpageText() { return (String) webpageCombo.getSelectedItem(); }
+        public int getSectionId() {
+            SectionItem item = (SectionItem) sectionCombo.getSelectedItem();
+            return item != null ? item.id : -1;
+        }
     }
+
 
     private Component createTab() {
         JTabbedPane tabb = new JTabbedPane();
@@ -609,7 +942,7 @@ public class FormTable extends Form {
             if (sectionName != null && !sectionName.trim().isEmpty()) {
                 try (Connection conn = DBConnection.getMySQLConnection()) {
                     if (conn == null) return;
-                    String sql = "INSERT INTO `Best_Section_ICT_C` (name) VALUES (?)";
+                    String sql = "INSERT INTO `best_section_ict_c` (name) VALUES (?)";
                     try (PreparedStatement ps = conn.prepareStatement(sql)) {
                         ps.setString(1, sectionName.trim());
                         ps.executeUpdate();
@@ -640,7 +973,7 @@ public class FormTable extends Form {
             if (confirm == JOptionPane.YES_OPTION) {
                 try (Connection conn = DBConnection.getMySQLConnection()) {
                     if (conn == null) return;
-                    String sql = "DELETE FROM `Best_Section_ICT_C` WHERE id = ?";
+                    String sql = "DELETE FROM `best_section_ict_c` WHERE id = ?";
                     try (PreparedStatement ps = conn.prepareStatement(sql)) {
                         for (int id : toDelete) {
                             ps.setInt(1, id);

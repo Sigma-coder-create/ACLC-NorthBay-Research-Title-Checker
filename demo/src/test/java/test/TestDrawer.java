@@ -18,12 +18,13 @@ public class TestDrawer extends BaseFrame {
         getRootPane().putClientProperty(FlatClientProperties.FULL_WINDOW_CONTENT, true);
         setLayout(new MigLayout("al center center"));
         JButton button = new JButton("show");
-        MyMenuValidation.setUser(new ModelUser("Ra Ven", "raven@gmail.com", ModelUser.Role.ADMIN));
+
+        // Use TEACHER role for testing (will show all menus)
+        MyMenuValidation.setUser(new ModelUser("Test Teacher", "teacher@test.com", ModelUser.Role.TEACHER));
+
         Drawer.installDrawer(this, MyDrawerBuilder.getInstance());
 
-        button.addActionListener(e -> {
-            Drawer.showDrawer();
-        });
+        button.addActionListener(e -> Drawer.showDrawer());
         add(button);
     }
 

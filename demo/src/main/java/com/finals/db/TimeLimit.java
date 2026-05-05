@@ -15,12 +15,14 @@ public class TimeLimit {
     public String source;
     public String dateStr;
     public boolean isRecent;
+    public int id;   
 
-    public TimeLimit(String title, double score, String source, String dateStr) {
+    public TimeLimit(String title, double score, String source, String dateStr, int id) {
         this.title = title;
         this.score = score;
         this.source = source;
         this.dateStr = dateStr;
+        this.id = id;
         this.isRecent = calculateRecency(dateStr);
     }
 
@@ -29,8 +31,8 @@ public class TimeLimit {
         int currentYear = java.time.Year.now().getValue();
         int cutoffYear = currentYear - 5;
 
-        String selectSQL = "SELECT ID, `SY-YR` FROM ACLC_research_titles WHERE record_state = 'ACTIVE'";
-        String updateSQL = "UPDATE ACLC_research_titles SET record_state = 'DELETED' WHERE ID = ?";
+        String selectSQL = "SELECT ID, `SY-YR` FROM aclc_research_titles WHERE record_state = 'ACTIVE'";
+        String updateSQL = "UPDATE aclc_research_titles SET record_state = 'DELETED' WHERE ID = ?";
 
         try (Connection con = DBConnection.getMySQLConnection()) {
             if (con == null) return;
