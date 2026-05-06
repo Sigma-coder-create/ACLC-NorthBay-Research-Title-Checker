@@ -151,8 +151,6 @@ public class MyDrawerBuilder extends SimpleDrawerBuilder {
                 new Item.Label("SWING UI"),
                 new Item("Forms", "forms.svg")
                         .subMenu("Table", FormTable.class),
-                new Item("Components", "components.svg")
-                        .subMenu("Avatar Icon", FormAvatarIcon.class),
                 new Item.Label("OTHER"),
                 new Item("Setting", "setting.svg", FormSetting.class),
                 new Item("About", "about.svg"),
@@ -184,11 +182,11 @@ public class MyDrawerBuilder extends SimpleDrawerBuilder {
             System.out.println("Drawer menu selected " + Arrays.toString(index));
             Class<?> itemClass = action.getItem().getItemClass();
             int i = index[0];
-            if (i == 4) {
+            if (i == 3) {
                 action.consume();
                 FormManager.showAbout();
                 return;
-            } else if (i == 5) {
+            } else if (i == 4) {
                 action.consume();
                 FormManager.logout();
                 return;

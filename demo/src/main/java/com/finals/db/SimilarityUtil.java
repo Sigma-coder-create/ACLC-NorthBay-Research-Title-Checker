@@ -94,7 +94,7 @@ public class SimilarityUtil {
     /** Now queries MySQL directly */
     public static List<TimeLimit> getDetailedSimilarTitles(String inputTitle) {
         List<TimeLimit> results = new ArrayList<>();
-        String sql = "SELECT `ID`, `Research Title`, `SY-YR` FROM aclc_research_titles";
+        String sql = "SELECT `ID`, `Research Title`, `SY-YR` FROM aclc_research_titles WHERE record_state = 'ACTIVE'";
 
         try (Connection con = DBConnection.getMySQLConnection();
              PreparedStatement ps = con.prepareStatement(sql);
@@ -114,26 +114,6 @@ public class SimilarityUtil {
             e.printStackTrace();
         }
         return results;
-    }
-    public static List<String> getSimilarTitlesFromWeb(String inputTitle) {
-        List<String> webTitles = new ArrayList<>();
-        if (!DemoPreferences.isSuggestionsEnabled() || !DBConnection.isInternetAvailable()) {
-            return webTitles;
-        }
-
-        try {
-        String encoded = java.net.URLEncoder.encode(inputTitle, "UTF-8");
-            java.net.URL url = new java.net.URL("https://scholar.google.com/scholar?q=" + encoded);
-
-            if (java.awt.Desktop.isDesktopSupported()) {
-                // Convert URL to URI here
-                java.awt.Desktop.getDesktop().browse(url.toURI()); 
-            }
-
-        } catch (Exception e) {
-            System.err.println("Web Check Failed: " + e.getMessage());
-        }
-        return webTitles;
     }
     private static void collectTitlesFromConn(Connection conn, List<String> out) {
         try (PreparedStatement ps = conn.prepareStatement("SELECT `Research Title` FROM aclc_research_titles");

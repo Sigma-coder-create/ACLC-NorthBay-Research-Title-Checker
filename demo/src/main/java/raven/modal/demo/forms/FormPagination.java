@@ -15,7 +15,7 @@ import javax.swing.*;
 import javax.swing.border.TitledBorder;
 import java.awt.*;
 
-@SystemForm(name = "Pagination", description = "pagination user interface component  (swing pack)", tags = {"swing pack", "page"})
+@SystemForm(name = "Hard Bind", description = "pagination user interface component  (swing pack)", tags = {"swing pack", "page"})
 public class FormPagination extends Form {
 
     public FormPagination() {
@@ -30,9 +30,9 @@ public class FormPagination extends Form {
 
     private JPanel createInfo() {
         JPanel panel = new JPanel(new MigLayout("fillx,wrap", "[fill]"));
-        JLabel title = new JLabel("Pagination");
+        JLabel title = new JLabel("Hard Bound");
         JTextPane text = new JTextPane();
-        text.setText("The JPagination component provides a simple and flexible way to navigate through multiple pages of content in Swing applications.");
+        text.setText("This is Where the Hard Bound Research Titles Will go.");
         text.setEditable(false);
         text.setBorder(BorderFactory.createEmptyBorder());
         title.putClientProperty(FlatClientProperties.STYLE, "" +
@@ -53,11 +53,14 @@ public class FormPagination extends Form {
 
     private Component createPagination() {
         JPanel panel = new JPanel(new MigLayout("wrap"));
-        panel.setBorder(new TitledBorder("Example"));
+        panel.setBorder(new TitledBorder("Hard Bind Titles"));
 
+        /*
         // default
         JPagination defaultPagination = new JPagination(10, 1, 50);
+        */
 
+        /*
         // circle pagination
         JPagination circlePagination = new JPagination(10, 1, 50);
         circlePagination.setItemRenderer(new DefaultPaginationItemRenderer() {
@@ -69,7 +72,9 @@ public class FormPagination extends Form {
                 return this;
             }
         });
+        */
 
+        /*
         // custom no border
         JPagination paginationNoBorder = new JPagination(10, 1, 50);
         paginationNoBorder.setItemGap(0);
@@ -84,31 +89,42 @@ public class FormPagination extends Form {
                 return this;
             }
         });
+        */
 
-        // custom animation
+        // custom animation (active)
         JPagination paginationAnimation = new PaginationAnimation(10, 1, 50);
 
+        /*
         // loop animation
         JPagination paginationLoop = new PaginationAnimation(7, 1, 7);
         paginationLoop.setLoop(true);
         paginationLoop.setItemSize(new Dimension(15, 15));
         paginationLoop.setItemGap(5);
         paginationLoop.setItemRenderer(new AnimatedLoopItemRenderer(paginationLoop));
+        */
 
+        /*
         panel.add(new JLabel("Default:"));
         panel.add(defaultPagination, "gapy n 10");
+        */
 
+        /*
         panel.add(new JLabel("Circle:"));
         panel.add(circlePagination, "gapy n 10");
+        */
 
+        /*
         panel.add(new JLabel("No Border:"));
         panel.add(paginationNoBorder, "gapy n 10");
+        */
 
-        panel.add(new JLabel("Custom with Animation:"));
+        panel.add(new JLabel(""));
         panel.add(paginationAnimation, "gapy n 10");
 
+        /*
         panel.add(new JLabel("Custom with Animation loop:"));
         panel.add(paginationLoop);
+        */
         return panel;
     }
 

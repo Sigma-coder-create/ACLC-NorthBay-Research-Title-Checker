@@ -4,18 +4,22 @@ import com.formdev.flatlaf.FlatClientProperties;
 import com.formdev.flatlaf.extras.FlatSVGIcon;
 import com.formdev.flatlaf.util.UIScale;
 import net.miginfocom.swing.MigLayout;
-import org.jfree.chart.renderer.xy.CandlestickRenderer;
 import raven.modal.demo.component.ToolBarSelection;
 import raven.modal.demo.component.chart.*;
-import raven.modal.demo.component.chart.renderer.other.ChartCandlestickRenderer;
 import raven.modal.demo.component.chart.themes.ColorThemes;
 import raven.modal.demo.component.chart.themes.DefaultChartTheme;
-import raven.modal.demo.component.chart.utils.ToolBarCategoryOrientation;
 import raven.modal.demo.component.chart.utils.ToolBarTimeSeriesChartRenderer;
 import raven.modal.demo.component.dashboard.CardBox;
-import raven.modal.demo.sample.SampleData;
 import raven.modal.demo.system.Form;
 import raven.modal.demo.utils.SystemForm;
+import java.text.SimpleDateFormat;
+
+import org.jfree.chart.JFreeChart;
+import org.jfree.chart.axis.DateAxis;
+import org.jfree.chart.axis.DateTickUnit;
+import org.jfree.chart.axis.DateTickUnitType;
+import org.jfree.chart.axis.NumberAxis;
+import org.jfree.chart.axis.ValueAxis;
 
 import com.finals.db.DBConnection;
 
@@ -40,9 +44,9 @@ public class FormDashboard extends Form {
         createTitle();
         createPanelLayout();
         createCard();
-        createRecentTable();          // ← NEW: live recent submissions table
+        createRecentTable();
         createChart();
-        createOtherChart();
+        // createOtherChart();   // commented out – not used
     }
 
     @Override
@@ -55,10 +59,6 @@ public class FormDashboard extends Form {
         loadData();
     }
 
-    /**
-     * Fetches real statistics from Aiven MySQL and updates the cards + recent table.
-     * Charts remain unchanged (sample data).
-     */
     private void loadData() {
         SwingWorker<Void, Void> worker = new SwingWorker<Void, Void>() {
             private int total = 0, pending = 0, approved = 0, denied = 0;
@@ -77,7 +77,7 @@ public class FormDashboard extends Form {
                             + "SUM(CASE WHEN Status = 'Denied' THEN 1 ELSE 0 END) AS denied "
                             + "FROM aclc_research_titles WHERE record_state = 'ACTIVE'";
                     try (PreparedStatement ps = conn.prepareStatement(countSql);
-                        ResultSet rs = ps.executeQuery()) {
+                         ResultSet rs = ps.executeQuery()) {
                         if (rs.next()) {
                             total = rs.getInt("total");
                             pending = rs.getInt("pending");
@@ -92,7 +92,7 @@ public class FormDashboard extends Form {
                             + "FROM aclc_research_titles WHERE record_state = 'ACTIVE' "
                             + "ORDER BY last_updated DESC LIMIT 5";
                     try (PreparedStatement ps = conn.prepareStatement(recentSql);
-                        ResultSet rs = ps.executeQuery()) {
+                         ResultSet rs = ps.executeQuery()) {
                         while (rs.next()) {
                             recentModel.addRow(new Object[]{
                                     rs.getString("Research Title"),
@@ -121,33 +121,39 @@ public class FormDashboard extends Form {
 
                 if (chartDataset != null) {
                     timeSeriesChart.setDataset(chartDataset);
-
-                    org.jfree.chart.JFreeChart chart = timeSeriesChart.getFreeChart();
+                    JFreeChart chart = timeSeriesChart.getFreeChart();
                     chart.setTitle("Approved vs Denied Over Time");
 
                     if (chart.getXYPlot() != null) {
-                        org.jfree.chart.axis.ValueAxis axis = chart.getXYPlot().getRangeAxis();
-                        if (axis instanceof org.jfree.chart.axis.NumberAxis) {
-                            org.jfree.chart.axis.NumberAxis numAxis = (org.jfree.chart.axis.NumberAxis) axis;
+                        // Range axis (Y-axis) – remove dollar signs
+                        ValueAxis rangeAxis = chart.getXYPlot().getRangeAxis();
+                        if (rangeAxis instanceof NumberAxis) {
+                            NumberAxis numAxis = (NumberAxis) rangeAxis;
                             numAxis.setNumberFormatOverride(new DecimalFormat("#,###"));
                         }
+                        // ---------- NEW: Domain axis (X-axis) – show real months ----------
+                        DateAxis domainAxis = (DateAxis) chart.getXYPlot().getDomainAxis();
+                        domainAxis.setDateFormatOverride(new SimpleDateFormat("MMM yyyy"));
+                        domainAxis.setTickUnit(new DateTickUnit(DateTickUnitType.MONTH, 1));
+                        // -----------------------------------------------------------------
                     }
                 }
+            
 
-                candlestickChart.setDataset(SampleData.getOhlcDataset());
-                barChart.setDataset(SampleData.getCategoryDataset());
-                spiderChart.setDataset(SampleData.getCategoryDataset());
-                pieChart.setDataset(SampleData.getPieDataset());
+                // All other charts are now commented out – no sample data loaded
+                // candlestickChart.setDataset(SampleData.getOhlcDataset());
+                // barChart.setDataset(SampleData.getCategoryDataset());
+                // spiderChart.setDataset(SampleData.getCategoryDataset());
+                // pieChart.setDataset(SampleData.getPieDataset());
             }
-                
         };
         worker.execute();
     }
+
     private org.jfree.data.time.TimeSeriesCollection buildApprovalDeniedDataset(Connection conn) throws SQLException {
         org.jfree.data.time.TimeSeries approvedSeries = new org.jfree.data.time.TimeSeries("Approved");
         org.jfree.data.time.TimeSeries deniedSeries  = new org.jfree.data.time.TimeSeries("Denied");
 
-        // Group by year and month of last_updated (or SY-YR if you prefer school years)
         String sql = "SELECT YEAR(last_updated) AS yr, MONTH(last_updated) AS mth, " +
                     "SUM(CASE WHEN Status = 'Approved' THEN 1 ELSE 0 END) AS approved_count, " +
                     "SUM(CASE WHEN Status = 'Denied' THEN 1 ELSE 0 END) AS denied_count " +
@@ -157,11 +163,10 @@ public class FormDashboard extends Form {
                     "ORDER BY yr, mth";
 
         try (PreparedStatement ps = conn.prepareStatement(sql);
-            ResultSet rs = ps.executeQuery()) {
+             ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
                 int year  = rs.getInt("yr");
                 int month = rs.getInt("mth");
-                // JFreeChart Month is 1‑based
                 org.jfree.data.time.Month m = new org.jfree.data.time.Month(month, year);
                 approvedSeries.add(m, rs.getInt("approved_count"));
                 deniedSeries.add(m, rs.getInt("denied_count"));
@@ -177,17 +182,15 @@ public class FormDashboard extends Form {
     private void createTitle() {
         JPanel panel = new JPanel(new MigLayout("fillx", "[]push[][]"));
         JLabel title = new JLabel("Dashboard");
-
-        title.putClientProperty(FlatClientProperties.STYLE, "" +
-                "font:bold +3");
+        title.putClientProperty(FlatClientProperties.STYLE, "font:bold +3");
 
         ToolBarSelection<ColorThemes> toolBarSelection = new ToolBarSelection<>(ColorThemes.values(), colorThemes -> {
             if (DefaultChartTheme.setChartColors(colorThemes)) {
                 DefaultChartTheme.applyTheme(timeSeriesChart.getFreeChart());
-                DefaultChartTheme.applyTheme(candlestickChart.getFreeChart());
-                DefaultChartTheme.applyTheme(barChart.getFreeChart());
-                DefaultChartTheme.applyTheme(pieChart.getFreeChart());
-                DefaultChartTheme.applyTheme(spiderChart.getFreeChart());
+                // DefaultChartTheme.applyTheme(candlestickChart.getFreeChart());  // commented out
+                // DefaultChartTheme.applyTheme(barChart.getFreeChart());          // commented out
+                // DefaultChartTheme.applyTheme(pieChart.getFreeChart());          // commented out
+                // DefaultChartTheme.applyTheme(spiderChart.getFreeChart());       // commented out
                 cardBox.setCardIconColor(0, DefaultChartTheme.getColor(0));
                 cardBox.setCardIconColor(1, DefaultChartTheme.getColor(1));
                 cardBox.setCardIconColor(2, DefaultChartTheme.getColor(2));
@@ -224,66 +227,52 @@ public class FormDashboard extends Form {
         panelLayout.add(panel);
     }
 
-    // -- NEW: Recent submissions table --
     private void createRecentTable() {
-        JPanel panel = new JPanel(new MigLayout("fillx,wrap,insets 10 0 0 0", "[fill]", "[][fill,grow]"));
+        JPanel panel = new JPanel(new MigLayout("fillx,wrap,insets 10 0 0 0", "[fill]", "[][250]"));
         JLabel lbl = new JLabel("Recent Submissions");
         lbl.putClientProperty(FlatClientProperties.STYLE, "font:bold +2");
         panel.add(lbl);
 
         recentModel = new DefaultTableModel(new Object[]{"Title", "SY‑YR", "Status", "Approved by"}, 0) {
-            @Override
-            public boolean isCellEditable(int row, int column) { return false; }
+            @Override public boolean isCellEditable(int row, int column) { return false; }
         };
         recentTable = new JTable(recentModel);
         JScrollPane scrollPane = new JScrollPane(recentTable);
         scrollPane.setBorder(BorderFactory.createEmptyBorder());
         recentTable.setRowHeight(28);
         recentTable.getTableHeader().putClientProperty(FlatClientProperties.STYLE, "" +
-                "height:30;" +
-                "hoverBackground:null;" +
-                "pressedBackground:null;");
+                "height:30;hoverBackground:null;pressedBackground:null;");
         recentTable.putClientProperty(FlatClientProperties.STYLE, "" +
-                "showHorizontalLines:true;" +
-                "intercellSpacing:0,1;");
+                "showHorizontalLines:true;intercellSpacing:0,1;");
         scrollPane.getVerticalScrollBar().putClientProperty(FlatClientProperties.STYLE, "" +
-                "width:5;" +
-                "trackArc:$ScrollBar.thumbArc;");
+                "width:5;trackArc:$ScrollBar.thumbArc;");
         panel.add(scrollPane, "grow, push");
-        panelLayout.add(panel);   // inserted between cards and charts
+        panelLayout.add(panel);
     }
 
     private void createChart() {
-        JPanel panel = new JPanel(new MigLayout("gap 14,wrap,fillx", "[fill]", "[350]"));
+        JPanel panel = new JPanel(new MigLayout("gap 14,wrap,fillx", "[fill]", "[650]"));
         timeSeriesChart = new TimeSeriesChart();
-        candlestickChart = new CandlestickChart();
-        barChart = new BarChart();
-        timeSeriesChart.add(new ToolBarTimeSeriesChartRenderer(timeSeriesChart), "al trailing,grow 0", 0);
-        candlestickChart.add(new ToolBarSelection<>(new String[]{"default", "red_green"}, s -> {
-            CandlestickRenderer renderer = (CandlestickRenderer) candlestickChart.getFreeChart().getXYPlot().getRenderer();
-            if (s == "default") {
-                renderer.setAutoPopulateSeriesPaint(true);
-                DefaultChartTheme.applyTheme(candlestickChart.getFreeChart());
-            } else {
-                renderer.setAutoPopulateSeriesPaint(false);
-                ChartCandlestickRenderer.initRedGreenColor(renderer);
+
+        // --- Remove the broken mouse listener (prevents ClassCastException flood) ---
+        org.jfree.chart.ChartPanel cp = timeSeriesChart.getChartPanel();
+        if (cp != null) {
+            for (java.util.EventListener el : cp.getListeners(org.jfree.chart.ChartMouseListener.class)) {
+                cp.removeChartMouseListener((org.jfree.chart.ChartMouseListener) el);
             }
-        }), "al trailing,grow 0", 0);
-        barChart.add(new ToolBarCategoryOrientation(barChart.getFreeChart()), "al trailing,grow 0", 0);
+        }
+        // candlestickChart and barChart are no longer created or displayed
+        // candlestickChart = new CandlestickChart();
+        // barChart = new BarChart();
+
+        timeSeriesChart.add(new ToolBarTimeSeriesChartRenderer(timeSeriesChart), "al trailing,grow 0", 0);
         panel.add(timeSeriesChart);
-        panel.add(candlestickChart);
-        panel.add(barChart);
+        // panel.add(candlestickChart);
+        // panel.add(barChart);
         panelLayout.add(panel);
     }
 
-    private void createOtherChart() {
-        JPanel panel = new JPanel(new MigLayout("fillx,gap 14", "[fill,300::]", "[300]"));
-        spiderChart = new SpiderChart();
-        pieChart = new PieChart();
-        panel.add(spiderChart);
-        panel.add(pieChart);
-        panelLayout.add(panel);
-    }
+    // private void createOtherChart() { … }   // not used, can be removed or left commented out
 
     private Icon createIcon(String icon, Color color) {
         return new FlatSVGIcon(icon, 0.4f).setColorFilter(new FlatSVGIcon.ColorFilter(color1 -> color));
@@ -292,63 +281,50 @@ public class FormDashboard extends Form {
     // --- Fields ---
     private JPanel panelLayout;
     private CardBox cardBox;
-
     private TimeSeriesChart timeSeriesChart;
-    private CandlestickChart candlestickChart;
-    private BarChart barChart;
-    private SpiderChart spiderChart;
-    private PieChart pieChart;
 
-    // NEW: recent submissions table
+    // These are still declared to avoid compile errors if referenced elsewhere,
+    // but they are never instantiated and should be safe as null.
+    // private CandlestickChart candlestickChart;
+    // private BarChart barChart;
+    // private SpiderChart spiderChart;
+    // private PieChart pieChart;
+
     private JTable recentTable;
     private DefaultTableModel recentModel;
 
     // --- DashboardLayout (unchanged) ---
     private class DashboardLayout implements LayoutManager {
-
         private int gap = 0;
-
-        @Override
-        public void addLayoutComponent(String name, Component comp) {
-        }
-
-        @Override
-        public void removeLayoutComponent(Component comp) {
-        }
+        @Override public void addLayoutComponent(String name, Component comp) {}
+        @Override public void removeLayoutComponent(Component comp) {}
 
         @Override
         public Dimension preferredLayoutSize(Container parent) {
             synchronized (parent.getTreeLock()) {
                 Insets insets = parent.getInsets();
-                int width = (insets.left + insets.right);
+                int width = insets.left + insets.right;
                 int height = insets.top + insets.bottom;
                 int g = UIScale.scale(gap);
                 int count = parent.getComponentCount();
                 for (int i = 0; i < count; i++) {
-                    Component com = parent.getComponent(i);
-                    Dimension size = com.getPreferredSize();
-                    height += size.height;
+                    height += parent.getComponent(i).getPreferredSize().height;
                 }
-                if (count > 1) {
-                    height += (count - 1) * g;
-                }
+                if (count > 1) height += (count - 1) * g;
                 return new Dimension(width, height);
             }
         }
 
         @Override
         public Dimension minimumLayoutSize(Container parent) {
-            synchronized (parent.getTreeLock()) {
-                return new Dimension(10, 10);
-            }
+            return new Dimension(10, 10);
         }
 
         @Override
         public void layoutContainer(Container parent) {
             synchronized (parent.getTreeLock()) {
                 Insets insets = parent.getInsets();
-                int x = insets.left;
-                int y = insets.top;
+                int x = insets.left, y = insets.top;
                 int width = parent.getWidth() - (insets.left + insets.right);
                 int g = UIScale.scale(gap);
                 int count = parent.getComponentCount();

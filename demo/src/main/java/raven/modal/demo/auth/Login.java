@@ -175,9 +175,13 @@ public class Login extends Form {
 
                 BCrypt.Result result = BCrypt.verifyer().verify(password.toCharArray(), storedHash);
                 if (result.verified) {
-                    ModelUser.Role role = "teacher".equalsIgnoreCase(roleStr) ?
-                                        ModelUser.Role.TEACHER : ModelUser.Role.STUDENT;
-                    user = new ModelUser(username, email, role);
+                    ModelUser.Role role = "teacher".equalsIgnoreCase(roleStr)
+                            ? ModelUser.Role.TEACHER : ModelUser.Role.STUDENT;
+
+                    // Allow only teachers
+                    if (role == ModelUser.Role.TEACHER) {
+                        user = new ModelUser(username, email, role);
+                    }
                 }
             }
         } catch (Exception e) {

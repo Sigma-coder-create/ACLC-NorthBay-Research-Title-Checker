@@ -4,6 +4,7 @@ import com.aclc.web.model.ResearchTitle;
 import com.aclc.web.model.Section;
 import com.aclc.web.repository.ResearchTitleRepository;
 import com.aclc.web.repository.SectionRepository;
+import com.aclc.web.repository.UserRepository;
 import com.aclc.web.service.UserService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -11,7 +12,9 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
+
 import javax.servlet.http.HttpSession;
+import java.util.List;
 
 @Controller
 public class AuthController {
@@ -19,13 +22,16 @@ public class AuthController {
     private final UserService userService;
     private final ResearchTitleRepository researchTitleRepo;
     private final SectionRepository sectionRepo;
+    private final UserRepository userRepo;   // <-- NEW
 
     public AuthController(UserService userService,
                           ResearchTitleRepository researchTitleRepo,
-                          SectionRepository sectionRepo) {
+                          SectionRepository sectionRepo,
+                          UserRepository userRepo) {
         this.userService = userService;
         this.researchTitleRepo = researchTitleRepo;
         this.sectionRepo = sectionRepo;
+        this.userRepo = userRepo;
     }
 
     @GetMapping("/")
@@ -48,9 +54,11 @@ public class AuthController {
                             @RequestParam(defaultValue = "10") int size,
                             @RequestParam(defaultValue = "researchTitle") String sort,
                             @RequestParam(defaultValue = "asc") String direction,
-                            @RequestParam(required = false, defaultValue = "dashboard") String view,
+                            @RequestParam(defaultValue = "dashboard") String view,
                             @RequestParam(required = false) String submitted,
                             @RequestParam(required = false) String warning,
+                            @RequestParam(defaultValue = "0") int hardBindPage,
+                            @RequestParam(defaultValue = "10") int hardBindSize,
                             HttpSession session,
                             Model model) {
 
@@ -58,38 +66,56 @@ public class AuthController {
             return "redirect:/login";
         }
 
+        // ---- Fetch logged‑in user's email from database ----
+        String username = (String) session.getAttribute("user");
+        System.out.println("DEBUG: logged in as '" + username + "'");
+
+        userRepo.findByUsername(username).ifPresentOrElse(user -> {
+            model.addAttribute("loggedInUsername", user.getUsername());
+            model.addAttribute("loggedInEmail", user.getEmail());
+            System.out.println("DEBUG: email = " + user.getEmail());
+        }, () -> {
+            System.out.println("DEBUG: user not found for '" + username + "'");
+        });
+
+        // ---- Existing paging / counting logic ----
         Sort sortObj = direction.equalsIgnoreCase("desc") ?
                 Sort.by(sort).descending() : Sort.by(sort).ascending();
         PageRequest pageable = PageRequest.of(page, size, sortObj);
 
         Page<ResearchTitle> researchTitles;
         if (sectionId != null) {
-            researchTitles = researchTitleRepo.findBySectionIdAndRecordState(sectionId, "ACTIVE", pageable);
+            researchTitles = researchTitleRepo.findBySectionIdAndRecordStateAndStatusNot(
+                    sectionId, "ACTIVE", "Hard Bind", pageable);
         } else {
-            researchTitles = researchTitleRepo.findByRecordState("ACTIVE", pageable);
+            researchTitles = researchTitleRepo.findByRecordStateAndStatusNot(
+                    "ACTIVE", "Hard Bind", pageable);
         }
 
-        long totalInputted = researchTitleRepo.countByRecordState("ACTIVE");
-        long totalAccepted = researchTitleRepo.countByRecordStateAndStatus("ACTIVE", "Approved");
+        long totalAllActive = researchTitleRepo.countByRecordState("ACTIVE");
+        long totalInputtedExcludingHardBind =
+                researchTitleRepo.countByRecordStateAndStatusNot("ACTIVE", "Hard Bind");
+        long totalAccepted =
+                researchTitleRepo.countByRecordStateAndStatus("ACTIVE", "Approved");
 
-        // =========================
-        // ✅ IMPROVED GLOBAL VISITOR COUNTER (NO REFRESH SPAM)
+        // Visitor counter
         if (session.getAttribute("counted") == null) {
-
             Integer visitors = (Integer) session.getServletContext().getAttribute("visitorCount");
             if (visitors == null) visitors = 0;
-
             visitors++;
             session.getServletContext().setAttribute("visitorCount", visitors);
-
             session.setAttribute("counted", true);
         }
-
         Integer visitors = (Integer) session.getServletContext().getAttribute("visitorCount");
         if (visitors == null) visitors = 0;
 
-        // =========================
+        // Hard Bind paged list
+        Page<ResearchTitle> hardBindPageObj = researchTitleRepo
+                .findByStatusAndRecordState("Hard Bind", "ACTIVE",
+                        PageRequest.of(hardBindPage, hardBindSize, Sort.by("lastUpdated").descending()));
 
+        // Add all attributes to the model
+        model.addAttribute("hardBindTitles", hardBindPageObj);
         model.addAttribute("researchTitles", researchTitles);
         model.addAttribute("sections", sectionRepo.findAll());
         model.addAttribute("currentSectionId", sectionId);
@@ -99,7 +125,8 @@ public class AuthController {
         model.addAttribute("pageSize", size);
         model.addAttribute("currentView", view);
         model.addAttribute("visitorCount", visitors);
-        model.addAttribute("totalInputted", totalInputted);
+        model.addAttribute("totalInputtedExcludingHardBind", totalInputtedExcludingHardBind);
+        model.addAttribute("totalAllActive", totalAllActive);
         model.addAttribute("totalAccepted", totalAccepted);
 
         if ("true".equals(submitted)) {
@@ -114,13 +141,13 @@ public class AuthController {
 
     @PostMapping("/submit-research")
     public String submitResearch(@RequestParam String researchTitle,
-                                @RequestParam String schoolYear,
-                                @RequestParam String strand,
-                                @RequestParam(required = false) Integer sectionId,
-                                @RequestParam(required = false, defaultValue = "no") String software,
-                                @RequestParam(required = false, defaultValue = "no") String webpage,
-                                HttpSession session) {
-
+                                 @RequestParam String schoolYear,
+                                 @RequestParam String strand,
+                                 @RequestParam(required = false) Integer sectionId,
+                                 @RequestParam(required = false, defaultValue = "no") String software,
+                                 @RequestParam(required = false, defaultValue = "no") String webpage,
+                                 @RequestParam(required = false, defaultValue = "no") String researchPaper,
+                                 HttpSession session) {
         if (session.getAttribute("user") == null) {
             return "redirect:/login";
         }
@@ -131,6 +158,7 @@ public class AuthController {
         rt.setStrand(strand);
         rt.setSoftware(software);
         rt.setWebpage(webpage);
+        rt.setResearchPaper(researchPaper);
         rt.setRecordState("ACTIVE");
         rt.setLastUpdated(java.time.LocalDateTime.now());
         rt.setStatus("Pending");
@@ -152,12 +180,10 @@ public class AuthController {
                         @RequestParam String password,
                         HttpSession session,
                         Model model) {
-
         if (userService.login(username, password) != null) {
             session.setAttribute("user", username);
             return "redirect:/main";
         }
-
         model.addAttribute("error", "Invalid credentials");
         return "Login";
     }
@@ -167,17 +193,14 @@ public class AuthController {
                            @RequestParam String email,
                            @RequestParam String password,
                            Model model) {
-
         if (password.length() < 6) {
             model.addAttribute("error", "Password too short");
             return "Register";
         }
-
         if (!userService.register(username, email, password)) {
             model.addAttribute("error", "Username taken or email invalid");
             return "Register";
         }
-
         return "redirect:/login";
     }
 

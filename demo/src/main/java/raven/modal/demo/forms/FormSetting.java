@@ -1,5 +1,4 @@
 package raven.modal.demo.forms;
-    
 
 import com.formdev.flatlaf.*;
 import com.formdev.flatlaf.extras.FlatSVGIcon;
@@ -56,7 +55,6 @@ public class FormSetting extends Form {
         panel.add(createWindowsLayout());
         panel.add(createDrawerLayout());
         panel.add(createModalDefaultOption());
-        panel.add(createResearchOptions());
         return panel;
     }
 
@@ -157,22 +155,6 @@ public class FormSetting extends Form {
         panel.add(jrRight);
         panel.add(jrTop);
         panel.add(jrBottom);
-        return panel;
-    }
-    private Component createResearchOptions() {
-        JPanel panel = new JPanel(new MigLayout());
-        panel.setBorder(new TitledBorder("Research Options"));
-
-        JCheckBox chSuggestions = new JCheckBox("Enable live similarity suggestions",
-                DemoPreferences.isSuggestionsEnabled());
-        chSuggestions.addActionListener(e -> DemoPreferences.setSuggestionsEnabled(chSuggestions.isSelected()));
-
-        JCheckBox chWebSearch = new JCheckBox("Enable web search for duplicates",
-                DemoPreferences.isWebSearchEnabled());
-        chWebSearch.addActionListener(e -> DemoPreferences.setWebSearchEnabled(chWebSearch.isSelected()));
-
-        panel.add(chSuggestions, "wrap");
-        panel.add(chWebSearch);
         return panel;
     }
 

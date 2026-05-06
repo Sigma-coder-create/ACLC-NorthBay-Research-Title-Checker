@@ -1,3 +1,7 @@
+<!-- ============================================================
+         This Was made by Terence Jahred L. Moralidad
+         For a Project In School at ACLC Northbay 
+         ============================================================ -->
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <head>
@@ -5,6 +9,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - Swing UI v2.7.0</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    
     <!-- ============================================================
          SWING UI – Modern Admin Dashboard Template
          Author: Swing Team
@@ -13,6 +18,7 @@
                    Icon library, fully responsive & resizable layout.
          ============================================================ -->
     <style>
+
         /* ──────────────────────────────────────────────────────────
            CSS Custom Properties (Light & Dark)
            ────────────────────────────────────────────────────────── */
@@ -453,54 +459,18 @@
                 <a href="#" data-nav="table">
                     <span class="icon">📋</span> Table
                 </a>
-                <a href="#" data-nav="icons">
-                    <span class="icon">🖼️</span> Icons
-                </a>
             </div>
             <div class="nav-section">
                 <div class="nav-section-title">Components</div>
-                <a href="#" data-nav="modal-demo">
-                    <span class="icon">🪟</span> Modal
+
+                <a href="#" data-nav="hardbind">
+                    <span class="icon">📑</span> Hard Bind
                 </a>
-                <a href="#" data-nav="toast-demo">
-                    <span class="icon">🔔</span> Toast
-                </a>
-                <a href="#" data-nav="datetime">
-                    <span class="icon">📅</span> Date Time
-                </a>
-                <a href="#" data-nav="colorpicker">
-                    <span class="icon">🎨</span> Color Picker
-                </a>
-                <a href="#" data-nav="avatar">
-                    <span class="icon">👤</span> Avatar Icon
-                </a>
-                <a href="#" data-nav="slidepane">
-                    <span class="icon">📑</span> Slide Pane
-                </a>
-                <a href="#" data-nav="pagination-demo">
-                    <span class="icon">🔢</span> Pagination
-                </a>
-                <a href="#" data-nav="multiselect">
-                    <span class="icon">☑️</span> MultiSelect
-                </a>
+
             </div>
-            <div class="nav-section">
-                <div class="nav-section-title">Apps</div>
-                <a href="#" data-nav="email">
-                    <span class="icon">✉️</span> Email
-                </a>
-                <a href="#" data-nav="chat">
-                    <span class="icon">💬</span> Chat
-                </a>
-                <a href="#" data-nav="calendar">
-                    <span class="icon">📆</span> Calendar
-                </a>
-            </div>
+
             <div class="nav-section">
                 <div class="nav-section-title">Other</div>
-                <a href="#" data-nav="plugin">
-                    <span class="icon">🔌</span> Plugin
-                </a>
                 <a href="#" data-nav="setting">
                     <span class="icon">⚙️</span> Setting
                 </a>
@@ -514,12 +484,12 @@
         </nav>
         <div class="sidebar-footer">
             <div class="user-info">
-                <!-- Dynamically show logged‑in user’s name from session -->
+                <!-- Avatar: first 2 characters of the logged‑in username -->
                 <div class="avatar" style="background:#6d83f8;"
-                     th:text="${session.user != null ? #strings.substring(session.user,0,2) : 'U'}">U</div>
+                    th:text="${session.user != null ? #strings.substring(session.user,0,2) : 'U'}">U</div>
                 <div class="user-details">
-                    <strong th:text="${session.user != null ? session.user : 'User'}">User</strong>
-                    <span th:text="${session.user != null ? session.user + '@mail.com' : 'user@mail.com'}">user@mail.com</span>
+                    <strong th:text="${loggedInUsername != null ? loggedInUsername : session.user}">User</strong>
+                    <span th:text="${loggedInEmail != null ? loggedInEmail : 'No email set'}">No email set</span>
                 </div>
             </div>
         </div>
@@ -551,17 +521,19 @@
                 <!-- Stats Row -->
                 <div class="stats-row">
                     <div class="stat-card">
-                        <div class="stat-icon blue">👥</div>
-                        <div class="stat-value" th:text="${visitorCount}">0</div>
-                        <div class="stat-label">Website Visitors</div>
-                        <div class="stat-change up">Page views this session</div>
+                        <div class="stat-icon blue">📋</div>
+                        <div class="stat-value" th:text="${totalAllActive}">0</div>
+                        <div class="stat-label">Total Research Titles</div>
+                        <div class="stat-change up">All submitted (incl. Hard Bind)</div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-icon green">📝</div>
-                        <div class="stat-value" th:text="${totalInputted}">0</div>
+                        <div class="stat-value" th:text="${totalInputtedExcludingHardBind}">0</div>
                         <div class="stat-label">Inputted Research Titles</div>
-                        <div class="stat-change up">All submitted titles</div>
+                        <div class="stat-change up">Active submissions (excl. Hard Bind)</div>
                     </div>
+
+                    <!-- Accepted Titles (unchanged) -->
                     <div class="stat-card">
                         <div class="stat-icon red">✅</div>
                         <div class="stat-value" th:text="${totalAccepted}">0</div>
@@ -570,26 +542,18 @@
                     </div>
                 </div>
 
-                <!-- Income vs Expense Chart -->
+                <!-- Active Submissions vs Approved & Active Chart -->
                 <div class="chart-section">
-                    <h3>Income vs Expense</h3>
+                    <h3>Active Submissions vs Approved & Active</h3>
                     <div class="chart-legend">
-                        <span><span class="dot" style="background:#4f6ef7;"></span> Income $148.30</span>
-                        <span><span class="dot" style="background:#ef4444;"></span> Expense $119.20</span>
+                        <span><span class="dot" style="background:#4f6ef7;"></span> Active Submissions</span>
+                        <span><span class="dot" style="background:#10b981;"></span> Approved & Active</span>
                     </div>
                     <div class="chart-wrapper">
-                        <canvas id="incomeChart"></canvas>
+                        <canvas id="comparisonChart"></canvas>
                     </div>
                 </div>
 
-                <!-- Action Buttons -->
-                <div class="action-bar" style="margin-top:4px;">
-                    <button class="btn btn-primary" onclick="openModal('Sample Modal', 'This is a sample modal dialog built with pure CSS. It demonstrates the modal component from the Swing UI library.')">Show Modal</button>
-                    <button class="btn" onclick="showToast('success','Operation completed successfully!')">Show Success Toast</button>
-                    <button class="btn" onclick="showToast('error','Something went wrong!')">Show Error Toast</button>
-                    <button class="btn" onclick="showToast('warning','Please review your input.')">Show Warning Toast</button>
-                    <button class="btn" onclick="showToast('info','Here is some information.')">Show Info Toast</button>
-                </div>
             </div>
 
             <!-- ======================== FORMS VIEW ======================== -->
@@ -636,10 +600,13 @@
                             </div>
                             <div style="display:flex;gap:20px;">
                                 <label for="software" style="font-size:12px;display:flex;align-items:center;gap:6px;">
-                                    <input type="checkbox" id="software" name="software" value="yes" checked> Software
+                                    <input type="checkbox" id="software" name="software" value="✔" checked> Software
                                 </label>
                                 <label for="webpage" style="font-size:12px;display:flex;align-items:center;gap:6px;">
-                                    <input type="checkbox" id="webpage" name="webpage" value="yes" checked> Webpage
+                                    <input type="checkbox" id="webpage" name="webpage" value="✔" checked> Webpage
+                                </label>
+                                <label for="researchPaper" style="font-size:12px;display:flex;align-items:center;gap:6px;">
+                                    <input type="checkbox" id="researchPaper" name="researchPaper" value="✔" checked> Research Paper
                                 </label>
                             </div>
                             <button type="submit" class="btn btn-primary" style="align-self:flex-start;">
@@ -654,14 +621,14 @@
             <div id="view-table" style="display:none;">
                 <div class="table-section" id="researchTableWrapper">
                     <h3>Research Titles</h3>
+
                     <!-- Section filter form -->
-                    <form th:action="@{/main}" method="get" style="margin-bottom:12px; display:flex; gap:8px; align-items:center;"
-                          onsubmit="showToast('info','Filtering by section...')">
-                          <input type="hidden" name="view" value="table" />
+                    <form th:action="@{/main}" method="get" style="margin-bottom:12px; display:flex; gap:8px; align-items:center;">
+                        <input type="hidden" name="view" value="table" />
                         <label for="sectionFilter">Section:</label>
                         <select name="sectionId" id="sectionFilter"
                                 style="padding:6px; border-radius:6px; border:1px solid var(--border);
-                                       background:var(--input-bg); color:var(--text);"
+                                    background:var(--input-bg); color:var(--text);"
                                 onchange="this.form.submit()">
                             <option value="">All Sections</option>
                             <option th:each="section : ${sections}"
@@ -672,8 +639,11 @@
                         <input type="hidden" name="sort" th:value="${currentSort}" />
                         <input type="hidden" name="direction" th:value="${currentDirection}" />
                         <input type="hidden" name="page" value="0" />
+                        <input type="hidden" name="sort" value="schoolYear" />
+                        <input type="hidden" name="direction"/>
                         <input type="hidden" name="view" value="table" />
                         <button type="submit" class="btn">Apply</button>
+                        
                     </form>
 
                     <!-- Sortable table -->
@@ -758,11 +728,11 @@
                         </span>
                         <div class="pagination-btns">
                             <a th:each="i : ${#numbers.sequence(0, researchTitles.totalPages - 1)}"
-                               th:href="@{/main(page=${i}, sort=${currentSort}, direction=${currentDirection}, sectionId=${currentSectionId}, view='table')}"
-                               th:text="${i + 1}"
-                               th:classappend="${i == currentPage} ? 'active' : ''"
-                               class="btn"
-                               th:onclick="|showToast('info','Navigated to page ' + ${i+1});|"></a>
+                            th:href="@{/main(page=${i}, sort=${currentSort}, direction=${currentDirection}, sectionId=${currentSectionId}, view='table')}"
+                            th:text="${i + 1}"
+                            th:classappend="${i == currentPage} ? 'active' : ''"
+                            class="btn"
+                            th:onclick="|showToast('info','Navigated to page ' + ${i+1});|"></a>
                         </div>
                     </div>
                 </div>
@@ -870,15 +840,6 @@
                                     <input type="checkbox" id="modalCloseEsc" checked> Close on pressed escape
                                 </label>
                             </div>
-                            <div class="settings-section">
-                                <h4>Research Options</h4>
-                                <label style="font-size:12px;display:flex;align-items:center;gap:8px;">
-                                    <input type="checkbox" id="researchLive"> Enable live similarity suggestions
-                                </label>
-                                <label style="font-size:12px;display:flex;align-items:center;gap:8px;margin-top:4px;">
-                                    <input type="checkbox" id="researchWeb"> Enable web search for duplicates
-                                </label>
-                            </div>
                         </div>
                         <div style="flex:2; min-width:300px;">
                             <div class="settings-section">
@@ -896,20 +857,6 @@
                 </div>
             </div>
 
-            <!-- ======================== PLUGIN VIEW ======================== -->
-            <div id="view-plugin" style="display:none;">
-                <div class="chart-section"><h3>🔌 Plugins</h3><p style="color:var(--text-secondary);font-size:13px;">Plugin 1 • Plugin 2 • Plugin 3</p><p style="color:var(--text-secondary);font-size:12px;margin-top:8px;">Manage installed plugins and extensions.</p></div>
-            </div>
-
-            <!-- ======================== CHAT VIEW ======================== -->
-            <div id="view-chat" style="display:none;">
-                <div class="chart-section"><h3>💬 Chat</h3><p style="color:var(--text-secondary);font-size:13px;">Chat interface coming soon.</p></div>
-            </div>
-
-            <!-- ======================== CALENDAR VIEW ======================== -->
-            <div id="view-calendar" style="display:none;">
-                <div class="chart-section"><h3>📆 Calendar</h3><p style="color:var(--text-secondary);font-size:13px;">Calendar view coming soon.</p></div>
-            </div>
 
             <!-- ======================== LOGOUT VIEW ======================== -->
             <div id="view-logout" style="display:none;">
@@ -920,101 +867,58 @@
                 </div>
             </div>
 
-            <!-- ======================== MODAL DEMO VIEW ======================== -->
-            <div id="view-modal-demo" style="display:none;">
-                <div class="chart-section">
-                    <h3>Modal Component</h3>
-                    <p style="color:var(--text-secondary);font-size:12px;">A modal dialog appears on top of the main window, requiring user interaction.</p>
-                    <div class="action-bar" style="margin-top:12px;">
-                        <button class="btn btn-primary" onclick="openModal('Default Modal','This is a standard modal with overlay background.')">Show Default</button>
-                        <button class="btn" onclick="openModal('Success','Operation completed! ✓')">Show Success</button>
-                        <button class="btn" style="background:#fef2f2;color:#ef4444;" onclick="openModal('Error','An error occurred. Please try again.')">Show Error</button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- ======================== TOAST DEMO VIEW ======================== -->
-            <div id="view-toast-demo" style="display:none;">
-                <div class="chart-section">
-                    <h3>Toast Notifications</h3>
-                    <p style="color:var(--text-secondary);font-size:12px;">Small, transient messages for user feedback.</p>
-                    <div class="action-bar" style="margin-top:12px;">
-                        <button class="btn" onclick="showToast('success','Success toast message!')">Success</button>
-                        <button class="btn" onclick="showToast('error','Error toast message!')">Error</button>
-                        <button class="btn" onclick="showToast('warning','Warning toast message!')">Warning</button>
-                        <button class="btn" onclick="showToast('info','Info toast message!')">Info</button>
-                        <button class="btn btn-primary" onclick="closeAllToasts()">Close All</button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- ======================== DATE TIME VIEW ======================== -->
-            <div id="view-datetime" style="display:none;">
-                <div class="chart-section">
-                    <h3>Date Time Picker (Philippines · UTC+8)</h3>
-                    <p style="color:var(--text-secondary);font-size:12px;">Current PH time: <strong id="phTimeDisplay">--</strong></p>
-                    <div style="margin-top:12px;">
-                        <input type="datetime-local" id="phDateTimePicker"
-                               style="padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--input-bg);color:var(--text);font-size:13px;">
-                    </div>
-                    <p style="font-size:12px;color:var(--text-secondary);margin-top:8px;" id="selectedDateTime"></p>
-                    <button class="btn btn-primary" onclick="useSelectedDateTime()">Use this date/time</button>
-                </div>
-            </div>
-
-            <!-- ======================== COLOR PICKER VIEW ======================== -->
-            <div id="view-colorpicker" style="display:none;">
-                <div class="chart-section">
-                    <h3>Color Picker</h3>
-                    <p style="color:var(--text-secondary);font-size:12px;">Choose colors easily and accurately.</p>
-                    <div style="margin-top:12px;display:flex;gap:12px;align-items:center;">
-                        <input type="color" value="#5856FF" style="width:50px;height:40px;border:none;cursor:pointer;border-radius:8px;">
-                        <span style="font-size:14px;font-weight:600;">#5856FF</span>
-                    </div>
-                    <div style="display:flex;gap:8px;margin-top:10px;">
-                        <span style="width:28px;height:28px;border-radius:6px;background:#56A8FF;display:inline-block;" title="#56A8FF"></span>
-                        <span style="width:28px;height:28px;border-radius:6px;background:#5856FF;display:inline-block;" title="#5856FF"></span>
-                        <span style="width:28px;height:28px;border-radius:6px;background:#AC56FF;display:inline-block;" title="#AC56FF"></span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- ======================== AVATAR VIEW ======================== -->
-            <div id="view-avatar" style="display:none;">
-                <div class="chart-section">
-                    <h3>Avatar Icon</h3>
-                    <p style="color:var(--text-secondary);font-size:12px;">Graphical element representing a user.</p>
-                    <div style="display:flex;gap:16px;align-items:center;margin-top:12px;">
-                        <div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,#4f6ef7,#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:28px;color:#fff;font-weight:700;border:4px solid var(--primary);">RV</div>
-                        <div style="width:60px;height:60px;border-radius:50%;background:#10b981;display:flex;align-items:center;justify-content:center;font-size:22px;color:#fff;font-weight:700;">JD</div>
-                        <div style="width:44px;height:44px;border-radius:50%;background:#f59e0b;display:flex;align-items:center;justify-content:center;font-size:16px;color:#fff;font-weight:700;">MK</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- ======================== SLIDE PANE VIEW ======================== -->
-            <div id="view-slidepane" style="display:none;">
-                <div class="chart-section">
-                    <h3>Slide Pane</h3>
-                    <p style="color:var(--text-secondary);font-size:12px;">Smooth transitions between panels.</p>
-                    <div class="action-bar" style="margin-top:12px;">
-                        <button class="btn btn-primary" onclick="showToast('info','Slide pane transition demo')">Show Slide-1</button>
-                        <button class="btn" onclick="showToast('info','Slide pane transition demo')">Show Slide-2</button>
-                    </div>
-                </div>
-            </div>
 
             <!-- ======================== PAGINATION DEMO VIEW ======================== -->
-            <div id="view-pagination-demo" style="display:none;">
+            <div id="view-hardbind" style="display:none;">
                 <div class="table-section">
-                    <h3>Pagination</h3>
-                    <p style="color:var(--text-secondary);font-size:12px;">Navigate through multiple pages.</p>
-                    <div class="pagination-btns" style="margin-top:12px;">
-                        <button class="active">1</button><button>2</button><button>3</button><button>4</button><button>5</button><button>6</button><button>7</button><button>8</button><button>9</button><button>...</button><button>50</button>
+                    <h3>Hard Binded Research Titles</h3>
+                    <p style="color:var(--text-secondary);font-size:12px;">
+                        Only titles with <strong>Status = Hard Bind</strong> are shown.
+                    </p>
+
+                    <div style="overflow-x:auto; margin-top:16px;">
+                        <table style="width:100%; border-collapse:collapse; font-size:12px;">
+                            <thead>
+                                <tr>
+                                    <th>Research Title</th>
+                                    <th>SY‑YR</th>
+                                    <th>Strand</th>
+                                    <th>Applied</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr th:each="rt : ${hardBindTitles.content}">
+                                    <td th:text="${rt.researchTitle}">Title</td>
+                                    <td th:text="${rt.schoolYear}"></td>
+                                    <td th:text="${rt.strand}"></td>
+                                    <td th:text="${rt.applied}"></td>
+                                </tr>
+                                <tr th:if="${hardBindTitles.content == null || hardBindTitles.content.empty}">
+                                    <td colspan="4" style="text-align:center;padding:16px;">
+                                        No Hard Binded titles found.
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination for Hard Bind -->
+                    <div style="margin-top:12px;">
+                        <span>
+                            Page <span th:text="${hardBindTitles.number + 1}"></span> of
+                            <span th:text="${hardBindTitles.totalPages}"></span>
+                            (Total: <span th:text="${hardBindTitles.totalElements}"></span>)
+                        </span>
+                        <div class="pagination-btns" style="display:flex; gap:4px; margin-top:6px;">
+                            <a th:each="i : ${#numbers.sequence(0, hardBindTitles.totalPages - 1)}"
+                               th:href="@{/main(hardBindPage=${i}, hardBindSize=10, view='hardbind')}"
+                               th:text="${i + 1}"
+                               th:classappend="${i == hardBindTitles.number} ? 'active' : ''"
+                               class="btn"></a>
+                        </div>
                     </div>
                 </div>
             </div>
-
             <!-- ======================== MULTISELECT VIEW ======================== -->
             <div id="view-multiselect" style="display:none;">
                 <div class="chart-section">
@@ -1046,7 +950,7 @@
     <!-- ============================================================
          SCRIPTS
          ============================================================ -->
-    <script>
+    <script th:inline="javascript">
         /* ==================== PHILIPPINE TIME ==================== */
         function updatePHClock() {
             const now = new Date();
@@ -1155,54 +1059,65 @@
             themeToggle.textContent = '☀️';
         }
 
-        /* ==================== CHART (Income vs Expense) ==================== */
-        const months = ['Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul'];
-        const incomeData = [120, 180, 250, 320, 280, 350, 420, 390, 460, 510, 580, 620, 550, 480, 520, 600, 650, 700];
-        const expenseData = [80, 110, 150, 190, 170, 210, 250, 230, 270, 300, 340, 370, 330, 290, 310, 350, 380, 410];
+        /* ==================== Active vs Approved Bar Chart ==================== */
+        const comparisonCtx = document.getElementById('comparisonChart').getContext('2d');
+        const activeSubmissions = /*[[${totalInputtedExcludingHardBind}]]*/ 0;
+        const approvedActive   = /*[[${totalAccepted}]]*/ 0;
 
-        const ctx = document.getElementById('incomeChart').getContext('2d');
-        let incomeChart = new Chart(ctx, {
-            type: 'line',
+        let comparisonChart = new Chart(comparisonCtx, {
+            type: 'doughnut',
             data: {
-                labels: months,
+                labels: ['Active Submissions', 'Approved & Active'],
                 datasets: [{
-                    label: 'Income',
-                    data: incomeData,
-                    borderColor: '#4f6ef7',
-                    backgroundColor: 'rgba(79,110,247,0.08)',
-                    fill: true, tension: 0.4, pointRadius: 3,
-                    pointBackgroundColor: '#4f6ef7', borderWidth: 2
-                }, {
-                    label: 'Expense',
-                    data: expenseData,
-                    borderColor: '#ef4444',
-                    backgroundColor: 'rgba(239,68,68,0.06)',
-                    fill: true, tension: 0.4, pointRadius: 3,
-                    pointBackgroundColor: '#ef4444', borderWidth: 2
+                    data: [activeSubmissions, approvedActive],
+                    backgroundColor: ['#4f6ef7', '#10b981'],
+                    borderColor: '#ffffff',
+                    borderWidth: 2,
+                    hoverBorderWidth: 3,
+                    hoverBorderColor: '#ffffff'
                 }]
             },
             options: {
-                responsive: true, maintainAspectRatio: false,
-                interaction: { intersect: false, mode: 'index' },
+                responsive: true,
+                maintainAspectRatio: false,
                 plugins: {
-                    legend: { display: false },
-                    tooltip: { backgroundColor: '#1e1f2b', titleColor: '#fff', bodyColor: '#ddd', borderColor: '#2e3040', borderWidth:1, cornerRadius:8, padding:12 }
+                    legend: {
+                        display: true,
+                        position: 'bottom',
+                        labels: {
+                            padding: 20,
+                            usePointStyle: true,
+                            pointStyleWidth: 10,
+                            font: { size: 12 }
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: '#1e1f2b',
+                        titleColor: '#fff',
+                        bodyColor: '#ddd',
+                        borderColor: '#2e3040',
+                        borderWidth: 1,
+                        cornerRadius: 8,
+                        padding: 12,
+                        callbacks: {
+                            label: function(context) {
+                                return ' ' + context.label + ': ' + context.parsed;
+                            }
+                        }
+                    }
                 },
-                scales: {
-                    x: { grid: { color: 'rgba(150,150,170,0.1)' }, ticks: { color: '#9095a8', font:{size:10}, maxRotation:45 } },
-                    y: { grid: { color: 'rgba(150,150,170,0.1)' }, ticks: { color: '#9095a8', font:{size:10}, callback: v=>'$'+v, stepSize:100 }, min:0, max:800 }
-                }
+                cutout: '65%'
             }
         });
-
+        console.log('Chart created:', comparisonChart);
+        /* Update dark‑mode colors */
         function updateChartColors() {
             const isDark = document.body.classList.contains('dark');
             const gridColor = isDark ? 'rgba(150,150,170,0.12)' : 'rgba(150,150,170,0.1)';
-            incomeChart.options.scales.x.grid.color = gridColor;
-            incomeChart.options.scales.y.grid.color = gridColor;
-            incomeChart.options.scales.x.ticks.color = isDark ? '#9095a8' : '#6b7280';
-            incomeChart.options.scales.y.ticks.color = isDark ? '#9095a8' : '#6b7280';
-            incomeChart.update();
+            comparisonChart.options.scales.y.grid.color = gridColor;
+            comparisonChart.options.scales.x.ticks.color = isDark ? '#9095a8' : '#6b7280';
+            comparisonChart.options.scales.y.ticks.color = isDark ? '#9095a8' : '#6b7280';
+            comparisonChart.update();
         }
 
         /* ==================== TOAST SYSTEM ==================== */

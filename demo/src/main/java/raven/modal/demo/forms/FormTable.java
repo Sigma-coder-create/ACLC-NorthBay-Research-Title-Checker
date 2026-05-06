@@ -18,7 +18,7 @@ import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import com.finals.db.SimilarityUtil;
 import com.finals.db.TimeLimit;
-
+import raven.modal.demo.component.pagination.PaginationAnimation;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableRowSorter;
@@ -26,6 +26,8 @@ import java.awt.*;
 import java.sql.*;
 import java.text.DecimalFormat;
 import java.util.Vector;
+import java.util.List;
+import java.util.ArrayList;
 
 @SystemForm(name = "Table", description = "table is a user interface component", tags = {"list"})
 public class FormTable extends Form {
@@ -48,7 +50,8 @@ public class FormTable extends Form {
 
     @Override
     public void formInit() {
-        Object[] columns = new Object[]{"#", "Research Title", "SY-YR", "Status", "Approved by", "Applied", "Strand", "Software", "Webpage"};
+        Object[] columns = new Object[]{"#", "Research Title", "SY-YR", "Status",
+            "Approved by", "Applied", "Strand", "Software", "Webpage", "Research Paper"};
         DefaultTableModel model = new DefaultTableModel(columns, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
@@ -86,6 +89,9 @@ public class FormTable extends Form {
         basicTable.getColumnModel().getColumn(8).setPreferredWidth(70);
         basicTable.getColumnModel().getColumn(8).setMaxWidth(100);
 
+        basicTable.getColumnModel().getColumn(9).setPreferredWidth(70);
+        basicTable.getColumnModel().getColumn(9).setMaxWidth(100);
+
         formRefresh();
     }
 
@@ -104,10 +110,12 @@ public class FormTable extends Form {
                 return;
             }
 
-            StringBuilder whereClause = new StringBuilder("WHERE record_state = 'ACTIVE'");
+            // Exclude 'Hard Bind' as well as 'DELETED'
+            StringBuilder whereClause = new StringBuilder("WHERE record_state = 'ACTIVE' AND Status != 'Hard Bind'");
             if (!search.isEmpty()) {
                 whereClause.append(" AND (`Research Title` LIKE ? OR `SY-YR` LIKE ? OR Strand LIKE ? OR "
-                        + "`Approved by` LIKE ? OR Applied LIKE ? OR Software LIKE ? OR Webpage LIKE ?)");
+                        + "`Approved by` LIKE ? OR Applied LIKE ? OR Software LIKE ? OR Webpage LIKE ?"
+                        + " OR `Research Paper` LIKE ?)");   // added Research Paper to search
             }
             if (selectedSectionId != -1) {
                 whereClause.append(" AND section_id = ?");
@@ -118,10 +126,10 @@ public class FormTable extends Form {
                 int paramIndex = 1;
                 if (!search.isEmpty()) {
                     String like = "%" + search + "%";
-                    for (int i = 0; i < 7; i++) {
+                    for (int i = 0; i < 8; i++) {   // now 8 searchable columns
                         pstmt.setString(i + 1, like);
                     }
-                    paramIndex = 8;
+                    paramIndex = 9;
                 }
                 if (selectedSectionId != -1) {
                     pstmt.setInt(paramIndex, selectedSectionId);
@@ -136,12 +144,14 @@ public class FormTable extends Form {
                 }
             }
 
-            String dataSql = "SELECT * FROM aclc_research_titles " + whereClause + " LIMIT ? OFFSET ?";
+            // data query – added Research Paper
+            String dataSql = "SELECT ID, `Research Title`, `SY-YR`, Status, `Approved by`, Applied, Strand, Software, Webpage, `Research Paper` "
+                    + "FROM aclc_research_titles " + whereClause + " LIMIT ? OFFSET ?";
             try (PreparedStatement pstmt = conn.prepareStatement(dataSql)) {
                 int paramIndex = 1;
                 if (!search.isEmpty()) {
                     String like = "%" + search + "%";
-                    for (int i = 0; i < 7; i++) {
+                    for (int i = 0; i < 8; i++) {
                         pstmt.setString(paramIndex++, like);
                     }
                 }
@@ -161,7 +171,8 @@ public class FormTable extends Form {
                             rs.getString("Applied"),
                             rs.getString("Strand"),
                             rs.getString("Software"),
-                            rs.getString("Webpage")
+                            rs.getString("Webpage"),
+                            rs.getString("Research Paper")
                         });
                     }
                 }
@@ -309,22 +320,6 @@ public class FormTable extends Form {
         btnEdit.addActionListener(e -> editSelected());
         btnDelete.addActionListener(e -> deleteSelected());
         JButton btnTest = new JButton("Test");
-        JButton btnScanAll = new JButton("Scan All");
-        
-        panel.add(txtBasicSearch, "growx");
-        panel.add(btnShowAll);
-        panel.add(btnEdit);
-        panel.add(btnDelete);
-        panel.add(btnTest); 
-        panel.add(btnScanAll);
-        btnScanAll.addActionListener(e -> {
-            int choice = JOptionPane.showConfirmDialog(this,
-                    "Run a full duplicate scan on ALL titles? This may take a moment.",
-                    "Full Duplicate Scan", JOptionPane.YES_NO_OPTION);
-            if (choice == JOptionPane.YES_OPTION) {
-                runDuplicateTest();
-            }
-        });
         btnTest.addActionListener(e -> {
             int row = basicTable.getSelectedRow();
             if (row == -1) {
@@ -334,17 +329,15 @@ public class FormTable extends Form {
                 return;
             }
 
-            // Get both the ID and the title from the selected row
-            int selectedId = (int) basicTable.getValueAt(row, 0);      // column 0 = ID
-            String selectedTitle = (String) basicTable.getValueAt(row, 1);
+            int selectedId = (int) basicTable.getValueAt(row, 0);           // column 0 = ID
+            String selectedTitle = (String) basicTable.getValueAt(row, 1);  // column 1 = Title
+
             if (selectedTitle == null || selectedTitle.trim().isEmpty()) {
                 JOptionPane.showMessageDialog(this,
-                        "Selected title is empty.",
-                        "Error", JOptionPane.ERROR_MESSAGE);
+                        "Selected title is empty.", "Error", JOptionPane.ERROR_MESSAGE);
                 return;
             }
 
-            // Save the selected ID for filtering inside the worker
             final int currentId = selectedId;
 
             SwingWorker<Void, Void> worker = new SwingWorker<Void, Void>() {
@@ -354,8 +347,7 @@ public class FormTable extends Form {
                 protected Void doInBackground() throws Exception {
                     java.util.List<TimeLimit> raw = SimilarityUtil.getDetailedSimilarTitles(selectedTitle);
                     for (TimeLimit t : raw) {
-                        // Exclude exact matches and also the row with the same ID
-                        if (t.score >= 0.7 && t.score < 1.0 && t.id != currentId) {
+                        if (t.score >= 0.7 && t.id != currentId) {
                             results.add(t);
                         }
                     }
@@ -375,6 +367,23 @@ public class FormTable extends Form {
             };
             worker.execute();
         });
+        JButton btnScanAll = new JButton("Scan All");
+            btnScanAll.addActionListener(e -> {
+                int choice = JOptionPane.showConfirmDialog(this,
+                        "Run a full duplicate scan on ALL titles? This may take a moment.",
+                        "Full Duplicate Scan", JOptionPane.YES_NO_OPTION);
+                if (choice == JOptionPane.YES_OPTION) {
+                    runDuplicateTest();   // method must exist – see next step
+                }
+            }); 
+        
+        panel.add(txtBasicSearch, "growx");
+        panel.add(btnShowAll);
+        panel.add(btnEdit);
+        panel.add(btnDelete);
+        panel.add(btnTest); 
+        panel.add(btnScanAll);
+
         panel.putClientProperty(FlatClientProperties.STYLE, "background:null;");
         return panel;
     }
@@ -390,25 +399,26 @@ public class FormTable extends Form {
                 java.util.List<TitleRecord> titles = new java.util.ArrayList<>();
                 try (Connection conn = DBConnection.getMySQLConnection()) {
                     if (conn == null) return null;
-                    String sql = "SELECT `Research Title`, `SY-YR` FROM aclc_research_titles WHERE record_state = 'ACTIVE'";
+                    String sql = "SELECT `Research Title`, `SY-YR`, Status FROM aclc_research_titles WHERE record_state = 'ACTIVE'";
                     try (Statement stmt = conn.createStatement();
                         ResultSet rs = stmt.executeQuery(sql)) {
                         while (rs.next()) {
-                            titles.add(new TitleRecord(rs.getString("Research Title"), rs.getString("SY-YR")));
+                            titles.add(new TitleRecord(
+                                    rs.getString("Research Title"),
+                                    rs.getString("SY-YR"),
+                                    rs.getString("Status")));
                         }
                     }
-                } catch (SQLException ex) {
-                    ex.printStackTrace();
-                    return null;
-                }
+                } catch (SQLException ex) { ex.printStackTrace(); return null; }
 
-                // Compare all pairs
+                titles.removeIf(t -> "Hard Bind".equalsIgnoreCase(t.status));
+
                 for (int i = 0; i < titles.size(); i++) {
                     for (int j = i + 1; j < titles.size(); j++) {
                         TitleRecord a = titles.get(i);
                         TitleRecord b = titles.get(j);
                         double score = SimilarityUtil.calculateSimilarity(a.title, b.title);
-                        if (score >= 0.7 && score < 1.0) {
+                        if (score >= 0.7) {   // includes 100% matches
                             duplicates.add(new DuplicateResult(a.title, a.syYr, b.title, b.syYr, score));
                         }
                     }
@@ -433,7 +443,13 @@ public class FormTable extends Form {
     private static class TitleRecord {
         String title;
         String syYr;
-        TitleRecord(String t, String s) { title = t; syYr = s; }
+        String status;          // <-- add this
+
+        TitleRecord(String t, String s, String st) {
+            title = t;
+            syYr = s;
+            status = st;
+        }
     }
 
     private static class DuplicateResult {
@@ -459,7 +475,7 @@ public class FormTable extends Form {
         for (TimeLimit m : matches) {
             model.addRow(new Object[]{
                     m.title,
-                    m.dateStr,   // or m.dateStr if the field is named differently
+                    m.dateStr,    // or m.dateStr if the field is named differently
                     String.format("%.0f%%", m.score * 100)
             });
         }
@@ -537,6 +553,7 @@ public class FormTable extends Form {
     String strand = (String) model.getValueAt(row, 6);
     String software = (String) model.getValueAt(row, 7);
     String webpage = (String) model.getValueAt(row, 8);
+    String researchPaper = (String) model.getValueAt(row, 9);
 
     // Retrieve current section_id
     int currentSectionId = -1;
@@ -553,7 +570,7 @@ public class FormTable extends Form {
         ex.printStackTrace();
     }
 
-    EditResearchPanel editPanel = new EditResearchPanel(title, syyr, status, approved, applied, strand, software, webpage, currentSectionId);
+    EditResearchPanel editPanel = new EditResearchPanel(title, syyr, status, approved, applied, strand, software, webpage, researchPaper, currentSectionId);
     Option option = ModalDialog.createOption();
     option.getLayoutOption().setSize(-1, 1f).setLocation(Location.CENTER, Location.CENTER);
 
@@ -563,7 +580,7 @@ public class FormTable extends Form {
                 if (action == SimpleModalBorder.YES_OPTION) {
                     try (Connection conn = DBConnection.getMySQLConnection()) {
                         if (conn == null) return;
-                        String sql = "UPDATE aclc_research_titles SET `Research Title`=?, `SY-YR`=?, Status=?, `Approved by`=?, Applied=?, Strand=?, Software=?, Webpage=?, section_id=? WHERE ID=?";
+                        String sql = "UPDATE aclc_research_titles SET `Research Title`=?, `SY-YR`=?, Status=?, `Approved by`=?, Applied=?, Strand=?, Software=?, Webpage=?, `Research Paper`=?, section_id=? WHERE ID=?";
                         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
                             pstmt.setString(1, editPanel.getTitleText());
                             pstmt.setString(2, editPanel.getSyYrText());
@@ -573,8 +590,9 @@ public class FormTable extends Form {
                             pstmt.setString(6, editPanel.getStrandText());
                             pstmt.setString(7, editPanel.getSoftwareText());
                             pstmt.setString(8, editPanel.getWebpageText());
-                            pstmt.setInt(9, editPanel.getSectionId());
-                            pstmt.setInt(10, id);
+                            pstmt.setString(9, editPanel.getResearchPaperText());
+                            pstmt.setInt(10, editPanel.getSectionId());
+                            pstmt.setInt(11, id);
                             pstmt.executeUpdate();
                         }
                         showToast("Record updated successfully.", "success");
@@ -613,8 +631,8 @@ public class FormTable extends Form {
     }
 
     private class EditResearchPanel extends JPanel {
-        private JTextField txtTitle, txtSyYr, txtStatus, txtApproved;
-        private JComboBox<String> strandCombo, appliedCombo, softwareCombo, webpageCombo;
+        private JTextField txtTitle, txtSyYr, txtApproved;
+        private JComboBox<String> strandCombo, appliedCombo, softwareCombo, webpageCombo, statusCombo, researchPaperCombo;
         private JComboBox<SectionItem> sectionCombo;
 
         // Simple inner class for section id+name
@@ -626,7 +644,7 @@ public class FormTable extends Form {
         }
 
         public EditResearchPanel(String title, String syyr, String status, String approved,
-                                String applied, String strand, String software, String webpage, int currentSectionId) {
+                                String applied, String strand, String software, String webpage, String researchPaper, int currentSectionId) {
             setLayout(new MigLayout("wrap 2, insets 10", "[right][fill,grow]", "[]10[]"));
 
             // Title
@@ -641,8 +659,10 @@ public class FormTable extends Form {
 
             // Status
             add(new JLabel("Status:"));
-            txtStatus = new JTextField(status);
-            add(txtStatus, "growx");
+        String[] statuses = {"Pending", "Approved", "Denied", "Hard Bind"};
+        statusCombo = new JComboBox<>(statuses);      // correct: JComboBox<String> inferred from left side
+        statusCombo.setSelectedItem(status);
+        add(statusCombo, "growx");
 
             // Approved by
             add(new JLabel("Approved by:"));
@@ -731,12 +751,13 @@ public class FormTable extends Form {
         // Getters
         public String getTitleText() { return txtTitle.getText(); }
         public String getSyYrText() { return txtSyYr.getText(); }
-        public String getStatusText() { return txtStatus.getText(); }
+        public String getStatusText() { return (String) statusCombo.getSelectedItem(); }
         public String getApprovedByText() { return txtApproved.getText(); }
         public String getAppliedText() { return (String) appliedCombo.getSelectedItem(); }
         public String getStrandText() { return (String) strandCombo.getSelectedItem(); }
         public String getSoftwareText() { return (String) softwareCombo.getSelectedItem(); }
         public String getWebpageText() { return (String) webpageCombo.getSelectedItem(); }
+        public String getResearchPaperText() { return (String) researchPaperCombo.getSelectedItem(); }
         public int getSectionId() {
             SectionItem item = (SectionItem) sectionCombo.getSelectedItem();
             return item != null ? item.id : -1;
@@ -749,6 +770,7 @@ public class FormTable extends Form {
         tabb.putClientProperty(FlatClientProperties.STYLE, "tabType:card");
         tabb.addTab("Basic table", createBorder(createBasicTable()));
         tabb.addTab("Custom table", createBorder(createCustomTable()));
+        tabb.addTab("Hard Bind", createBorder(createHardBindTable()));   // <-- new
         return tabb;
     }
 
@@ -851,7 +873,7 @@ public class FormTable extends Form {
     private Component createBasicTable() {
         JPanel panelTable = new JPanel(new MigLayout("fillx,wrap,insets 15 0 10 0", "[fill]", "[][][fill,grow][]"));
 
-        Object[] columns = new Object[]{"#", "Research Title", "SY-YR", "Status", "Approved by", "Applied", "Strand", "Software", "Webpage"};
+        Object[] columns = new Object[]{"#", "Research Title", "SY-YR", "Status", "Approved by", "Applied", "Strand", "Software", "Webpage", "Research Paper"};
         DefaultTableModel model = new DefaultTableModel(columns, 0);
         JTable table = new JTable(model);
         JScrollPane scrollPane = new JScrollPane(table);
@@ -919,7 +941,139 @@ public class FormTable extends Form {
         basicTable = table;
         return panelTable;
     }
+    private Component createHardBindTable() {
+        JPanel panelTable = new JPanel(new MigLayout("fillx,wrap,insets 15 0 10 0", "[fill]", "[][][fill,grow][]"));
 
+        // Only the columns that matter – no ID, Status, or Approved by
+        Object[] columns = new Object[]{"#", "Research Title", "SY-YR", "Applied", "Strand", "Software", "Webpage", "Research Paper"};
+        DefaultTableModel model = new DefaultTableModel(columns, 0) {
+            @Override public boolean isCellEditable(int r, int c) { return false; }
+        };
+        JTable table = new JTable(model);
+        JScrollPane scrollPane = new JScrollPane(table);
+        scrollPane.setBorder(BorderFactory.createEmptyBorder());
+
+        JLabel title = new JLabel("Hard Binded Research Titles");
+        title.putClientProperty(FlatClientProperties.STYLE, "font:bold +2");
+        panelTable.add(title, "wrap");
+
+        panelTable.add(scrollPane, "grow, push");
+
+        // Animated pagination
+        PaginationAnimation pagination = new PaginationAnimation(10, 1, 50);
+        JLabel totalLabel = new JLabel("0");
+
+        // Data loader – fetches only the displayed columns
+        class HardBindLoader {
+            int limit = 20;
+            void load(int page) {
+                DefaultTableModel m = (DefaultTableModel) table.getModel();
+                m.setRowCount(0);
+                int offset = (page - 1) * limit;
+                try (Connection conn = DBConnection.getMySQLConnection()) {
+                    if (conn == null) return;
+
+                    // Count
+                    String countSql = "SELECT COUNT(*) FROM aclc_research_titles WHERE record_state = 'ACTIVE' AND Status = 'Hard Bind'";
+                    PreparedStatement psCount = conn.prepareStatement(countSql);
+                    ResultSet rsCount = psCount.executeQuery();
+                    int total = 0;
+                    if (rsCount.next()) total = rsCount.getInt(1);
+                    totalLabel.setText(DecimalFormat.getInstance().format(total));
+                    int totalPages = (int) Math.ceil((double) total / limit);
+                    pagination.getModel().setPageRange(page, Math.max(1, totalPages));
+
+                    // Data – no ID, Status, Approved by
+                    String sql = "SELECT `Research Title`, `SY-YR`, Applied, Strand, Software, Webpage, `Research Paper` "
+                            + "FROM aclc_research_titles "
+                            + "WHERE record_state = 'ACTIVE' AND Status = 'Hard Bind' "
+                            + "LIMIT ? OFFSET ?";
+                    PreparedStatement psData = conn.prepareStatement(sql);
+                    psData.setInt(1, limit);
+                    psData.setInt(2, offset);
+                    ResultSet rs = psData.executeQuery();
+                    int rowNum = offset + 1;   // start numbering
+                    while (rs.next()) {
+                        m.addRow(new Object[]{
+                                rowNum++,
+                                rs.getString("Research Title"),
+                                rs.getString("SY-YR"),
+                                rs.getString("Applied"),
+                                rs.getString("Strand"),
+                                rs.getString("Software"),
+                                rs.getString("Webpage"),
+                                rs.getString("Research Paper")
+                        });
+                    }
+                } catch (SQLException e) { e.printStackTrace(); }
+            }
+        }
+        HardBindLoader loader = new HardBindLoader();
+        pagination.addChangeListener(e -> loader.load(pagination.getSelectedPage()));
+        loader.load(1);
+
+        JPanel panelPage = new JPanel(new MigLayout("insets 5 15 5 15", "[][]push[]"));
+        panelPage.putClientProperty(FlatClientProperties.STYLE, "background:null;");
+        panelPage.add(new JLabel("Total:"));
+        panelPage.add(totalLabel);
+        panelPage.add(pagination);
+        panelTable.add(panelPage);
+
+        // ---------- Column widths ----------
+        table.setAutoResizeMode(JTable.AUTO_RESIZE_SUBSEQUENT_COLUMNS);
+        table.getColumnModel().getColumn(0).setPreferredWidth(40);   // #
+        table.getColumnModel().getColumn(0).setMaxWidth(50);
+        table.getColumnModel().getColumn(1).setPreferredWidth(350);  // Research Title
+
+        table.getColumnModel().getColumn(2).setPreferredWidth(80);   // SY-YR
+        table.getColumnModel().getColumn(2).setMaxWidth(120);
+
+        table.getColumnModel().getColumn(3).setPreferredWidth(90);   // Applied
+        table.getColumnModel().getColumn(3).setMaxWidth(120);
+
+        table.getColumnModel().getColumn(4).setPreferredWidth(60);   // Strand
+        table.getColumnModel().getColumn(4).setMaxWidth(100);
+
+        table.getColumnModel().getColumn(5).setPreferredWidth(70);   // Software
+        table.getColumnModel().getColumn(5).setMaxWidth(100);
+
+        table.getColumnModel().getColumn(6).setPreferredWidth(70);   // Webpage
+        table.getColumnModel().getColumn(6).setMaxWidth(100);
+
+        table.getColumnModel().getColumn(7).setPreferredWidth(70);   // Research Paper
+        table.getColumnModel().getColumn(7).setMaxWidth(100);
+
+        // Styling (same as before)
+        panelTable.putClientProperty(FlatClientProperties.STYLE, "" +
+                "arc:10;" +
+                "background:$Table.background;");
+        table.getTableHeader().putClientProperty(FlatClientProperties.STYLE, "" +
+                "height:30;" +
+                "hoverBackground:null;" +
+                "pressedBackground:null;" +
+                "separatorColor:$TableHeader.background;");
+        table.putClientProperty(FlatClientProperties.STYLE, "" +
+                "rowHeight:30;" +
+                "showHorizontalLines:true;" +
+                "intercellSpacing:0,1;" +
+                "cellFocusColor:$TableHeader.hoverBackground;" +
+                "selectionBackground:$TableHeader.hoverBackground;" +
+                "selectionInactiveBackground:$TableHeader.hoverBackground;" +
+                "selectionForeground:$Table.foreground;");
+        scrollPane.getVerticalScrollBar().putClientProperty(FlatClientProperties.STYLE, "" +
+                "trackArc:$ScrollBar.thumbArc;" +
+                "trackInsets:3,3,3,3;" +
+                "thumbInsets:3,3,3,3;" +
+                "background:$Table.background;");
+
+        table.getTableHeader().setDefaultRenderer(new TableHeaderAlignment(table) {
+            @Override protected int getAlignment(int column) {
+                return (column == 0) ? SwingConstants.CENTER : SwingConstants.LEADING;
+            }
+        });
+
+        return panelTable;
+    }
     private Component createHeaderAction() {
         JPanel panel = new JPanel(new MigLayout("insets 5 20 5 20", "[fill,230]push[][]"));
 

@@ -34,6 +34,9 @@ public class ResearchTitle {
     @Column(name = "Webpage")
     private String webpage;
 
+    @Column(name = "`Research Paper`")
+    private String researchPaper;
+
     @Column(name = "last_updated")
     private LocalDateTime lastUpdated;
 
@@ -80,4 +83,7 @@ public class ResearchTitle {
 
     public Section getSection() { return section; }
     public void setSection(Section section) { this.section = section; }
+
+    public String getResearchPaper() { return researchPaper; }
+    public void setResearchPaper(String researchPaper) { this.researchPaper = researchPaper; }
 }
