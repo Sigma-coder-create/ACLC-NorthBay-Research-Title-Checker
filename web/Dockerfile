@@ -1,23 +1,21 @@
-# Step 1: Build the application using Maven and Java 21
+# Step 1: Build the web module
 FROM maven:3.9.6-eclipse-temurin-21 AS build
 WORKDIR /app
 
-# Copy the pom.xml and source code
-COPY . .
+# Copy only the web module's pom.xml and source
+COPY web/pom.xml ./pom.xml
+COPY web/src ./src
 
-# Run Maven build, skipping tests to speed up the process
+# Build (JAR ends up in /app/target/)
 RUN mvn clean package -DskipTests
 
-# Step 2: Run the application using Java 21 Runtime
+# Step 2: Run the application
 FROM eclipse-temurin:21-jre
 WORKDIR /app
 
-# Copy the JAR file from the build stage
-# Note: Ensure the filename matches your actual generated JAR name
-COPY --from=build /app/web/target/*.jar app.jar
+# Copy the built JAR
+COPY --from=build /app/target/*.jar app.jar
 
-# Expose the port (Render usually uses 8080 or 10000)
 EXPOSE 8080
 
-# Start the application
 ENTRYPOINT ["java", "-jar", "app.jar"]
