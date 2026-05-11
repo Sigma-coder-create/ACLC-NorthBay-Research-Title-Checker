@@ -45,7 +45,7 @@ public class FormDashboard extends Form {
         createPanelLayout();
         createCard();
         createRecentTable();
-        createChart();
+       // createChart();
         // createOtherChart();   // commented out – not used
     }
 
@@ -119,23 +119,18 @@ public class FormDashboard extends Form {
                 cardBox.setValueAt(2, fmt.format(approved), "Approved", "", true);
                 cardBox.setValueAt(3, fmt.format(denied), "Denied", "", false);
 
-                if (chartDataset != null) {
+                if (chartDataset != null && timeSeriesChart != null) {
                     timeSeriesChart.setDataset(chartDataset);
-                    JFreeChart chart = timeSeriesChart.getFreeChart();
+
+                    org.jfree.chart.JFreeChart chart = timeSeriesChart.getFreeChart();
                     chart.setTitle("Approved vs Denied Over Time");
 
                     if (chart.getXYPlot() != null) {
-                        // Range axis (Y-axis) – remove dollar signs
-                        ValueAxis rangeAxis = chart.getXYPlot().getRangeAxis();
-                        if (rangeAxis instanceof NumberAxis) {
-                            NumberAxis numAxis = (NumberAxis) rangeAxis;
+                        org.jfree.chart.axis.ValueAxis axis = chart.getXYPlot().getRangeAxis();
+                        if (axis instanceof org.jfree.chart.axis.NumberAxis) {
+                            org.jfree.chart.axis.NumberAxis numAxis = (org.jfree.chart.axis.NumberAxis) axis;
                             numAxis.setNumberFormatOverride(new DecimalFormat("#,###"));
                         }
-                        // ---------- NEW: Domain axis (X-axis) – show real months ----------
-                        DateAxis domainAxis = (DateAxis) chart.getXYPlot().getDomainAxis();
-                        domainAxis.setDateFormatOverride(new SimpleDateFormat("MMM yyyy"));
-                        domainAxis.setTickUnit(new DateTickUnit(DateTickUnitType.MONTH, 1));
-                        // -----------------------------------------------------------------
                     }
                 }
             
@@ -184,17 +179,19 @@ public class FormDashboard extends Form {
         JLabel title = new JLabel("Dashboard");
         title.putClientProperty(FlatClientProperties.STYLE, "font:bold +3");
 
-        ToolBarSelection<ColorThemes> toolBarSelection = new ToolBarSelection<>(ColorThemes.values(), colorThemes -> {
+            ToolBarSelection<ColorThemes> toolBarSelection = new ToolBarSelection<>(ColorThemes.values(), colorThemes -> {
             if (DefaultChartTheme.setChartColors(colorThemes)) {
-                DefaultChartTheme.applyTheme(timeSeriesChart.getFreeChart());
-                // DefaultChartTheme.applyTheme(candlestickChart.getFreeChart());  // commented out
-                // DefaultChartTheme.applyTheme(barChart.getFreeChart());          // commented out
-                // DefaultChartTheme.applyTheme(pieChart.getFreeChart());          // commented out
-                // DefaultChartTheme.applyTheme(spiderChart.getFreeChart());       // commented out
-                cardBox.setCardIconColor(0, DefaultChartTheme.getColor(0));
-                cardBox.setCardIconColor(1, DefaultChartTheme.getColor(1));
-                cardBox.setCardIconColor(2, DefaultChartTheme.getColor(2));
-                cardBox.setCardIconColor(3, DefaultChartTheme.getColor(3));
+                if (timeSeriesChart != null) {
+                    DefaultChartTheme.applyTheme(timeSeriesChart.getFreeChart());
+                    // DefaultChartTheme.applyTheme(candlestickChart.getFreeChart());  // commented out
+                    // DefaultChartTheme.applyTheme(barChart.getFreeChart());          // commented out
+                    // DefaultChartTheme.applyTheme(pieChart.getFreeChart());          // commented out
+                    // DefaultChartTheme.applyTheme(spiderChart.getFreeChart());       // commented out
+                    cardBox.setCardIconColor(0, DefaultChartTheme.getColor(0));
+                    cardBox.setCardIconColor(1, DefaultChartTheme.getColor(1));
+                    cardBox.setCardIconColor(2, DefaultChartTheme.getColor(2));
+                    cardBox.setCardIconColor(3, DefaultChartTheme.getColor(3));
+                }
             }
         });
         panel.add(title);

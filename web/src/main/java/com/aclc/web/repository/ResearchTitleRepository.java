@@ -42,4 +42,7 @@ public interface ResearchTitleRepository extends JpaRepository<ResearchTitle, In
     Page<ResearchTitle> findByStatusAndRecordState(@Param("status") String status,
                                                @Param("recordState") String recordState,
                                                Pageable pageable);
+
+    @Query("SELECT r FROM ResearchTitle r WHERE r.recordState = :recordState")
+    List<ResearchTitle> findByRecordState(@Param("recordState") String recordState);
 }

@@ -34,14 +34,14 @@ public class ForgotPasswordDialog extends JDialog {
     }
 
     private void init() {
-        setLayout(new MigLayout("fill,insets 20", "[fill,300]"));
+        setLayout(new MigLayout("fill,insets 20", "[fill,450]"));
         setResizable(false);
 
         cardLayout = new CardLayout();
         cardPanel = new JPanel(cardLayout);
 
         // ---- Card 1: enter email ----
-        JPanel page1 = new JPanel(new MigLayout("fillx,wrap,insets 0"));
+        JPanel page1 = new JPanel(new MigLayout("fillx,wrap,insets 0", "[fill,300]"));
         page1.putClientProperty(FlatClientProperties.STYLE, "background:null;");
 
         JLabel lbTitle = new JLabel("Reset your password");
@@ -62,8 +62,8 @@ public class ForgotPasswordDialog extends JDialog {
         cardPanel.add(page1, "email");
 
         // ---- Card 2: code + new password ----
-        JPanel page2 = new JPanel(new MigLayout("fillx,wrap,insets 0"));
-        page2.putClientProperty(FlatClientProperties.STYLE, "background:null;");
+        JPanel page2 = new JPanel(new MigLayout("fillx,wrap,insets 0","[fill,300]"));
+        page2.putClientProperty(FlatClientProperties.STYLE, "background:null;"); 
 
         page2.add(new JLabel("Check your email for the code"), "gapbottom 15");
 
@@ -96,6 +96,7 @@ public class ForgotPasswordDialog extends JDialog {
 
         add(cardPanel, "grow");
         pack();
+        setMinimumSize(new Dimension(450, getPreferredSize().height));
         setLocationRelativeTo(getOwner());
     }
 

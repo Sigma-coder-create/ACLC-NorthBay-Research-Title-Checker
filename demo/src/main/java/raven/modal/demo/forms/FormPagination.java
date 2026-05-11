@@ -15,7 +15,7 @@ import javax.swing.*;
 import javax.swing.border.TitledBorder;
 import java.awt.*;
 
-@SystemForm(name = "Hard Bind", description = "pagination user interface component  (swing pack)", tags = {"swing pack", "page"})
+@SystemForm(name = "Hard Bound", description = "pagination user interface component  (swing pack)", tags = {"swing pack", "page"})
 public class FormPagination extends Form {
 
     public FormPagination() {
@@ -53,7 +53,7 @@ public class FormPagination extends Form {
 
     private Component createPagination() {
         JPanel panel = new JPanel(new MigLayout("wrap"));
-        panel.setBorder(new TitledBorder("Hard Bind Titles"));
+        panel.setBorder(new TitledBorder("Hard Bound Titles"));
 
         /*
         // default

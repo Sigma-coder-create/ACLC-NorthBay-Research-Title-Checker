@@ -701,6 +701,11 @@ public class FormTable extends Form {
             webpageCombo.setSelectedItem(webpage);
             add(webpageCombo, "growx");
 
+            add(new JLabel("Research Paper:"));
+            researchPaperCombo = new JComboBox<>(yesNo);
+            researchPaperCombo.setSelectedItem(researchPaper);
+            add(researchPaperCombo, "growx");
+
             // Load sections for the initial strand, and select the current section if possible
             loadSectionsForStrand(strand);
             for (int i = 0; i < sectionCombo.getItemCount(); i++) {
@@ -770,7 +775,7 @@ public class FormTable extends Form {
         tabb.putClientProperty(FlatClientProperties.STYLE, "tabType:card");
         tabb.addTab("Basic table", createBorder(createBasicTable()));
         tabb.addTab("Custom table", createBorder(createCustomTable()));
-        tabb.addTab("Hard Bind", createBorder(createHardBindTable()));   // <-- new
+        tabb.addTab("Hard Bound", createBorder(createHardBindTable()));   // <-- new
         return tabb;
     }
 
@@ -953,7 +958,7 @@ public class FormTable extends Form {
         JScrollPane scrollPane = new JScrollPane(table);
         scrollPane.setBorder(BorderFactory.createEmptyBorder());
 
-        JLabel title = new JLabel("Hard Binded Research Titles");
+        JLabel title = new JLabel("Hard Bounded Research Titles");
         title.putClientProperty(FlatClientProperties.STYLE, "font:bold +2");
         panelTable.add(title, "wrap");
 
