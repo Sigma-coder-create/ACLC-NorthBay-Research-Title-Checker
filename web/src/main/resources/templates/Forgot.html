@@ -9,7 +9,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Forgot Password</title>
     <style>
-
+        /* Same beautiful CSS as before – kept exactly as you had it */
         *,
         *::before,
         *::after {
@@ -56,7 +56,6 @@
             z-index: 0;
         }
 
-        /* ── Card ── */
         .login-card {
             position: relative;
             z-index: 1;
@@ -80,7 +79,6 @@
                 0 0 0 1px rgba(255, 255, 255, 0.5) inset;
         }
 
-        /* ── Header ── */
         .login-header {
             text-align: center;
             margin-bottom: 2.2rem;
@@ -102,7 +100,6 @@
             letter-spacing: 0.1px;
         }
 
-        /* ── Form ── */
         .login-form {
             display: flex;
             flex-direction: column;
@@ -174,7 +171,6 @@
             font-size: 0.9rem;
         }
 
-        /* ── Button ── */
         .btn-login {
             width: 100%;
             padding: 0.9rem;
@@ -215,7 +211,12 @@
             transition: all 0.1s ease;
         }
 
-        /* ── Back to login link ── */
+        .btn-login:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
         .back-to-login {
             text-align: center;
             margin-top: 1.6rem;
@@ -236,7 +237,6 @@
             text-underline-offset: 3px;
         }
 
-        /* ── Contact section ── */
         .contact-section {
             text-align: center;
             margin-top: 0.8rem;
@@ -254,7 +254,37 @@
             text-decoration: underline;
         }
 
-        /* ── Responsive ── */
+        /* Message box (for JavaScript feedback) */
+        .message-box {
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 1.2rem;
+            font-size: 0.9rem;
+            display: none; /* hidden by default */
+            text-align: center;
+        }
+
+        .message-box.success {
+            background: #ecfdf5;
+            border: 1px solid #a7f3d0;
+            color: #065f46;
+            display: block;
+        }
+
+        .message-box.error {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #991b1b;
+            display: block;
+        }
+
+        .message-box.info {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            color: #1e3a8a;
+            display: block;
+        }
+
         @media (max-width: 480px) {
             .login-card {
                 padding: 2rem 1.5rem 1.8rem;
@@ -275,21 +305,21 @@
             <p class="login-subtitle">Enter your email and we'll send you a reset link</p>
         </div>
 
-        <!-- ⬇️ Put the Thymeleaf message block BELOW the header, BEFORE the form -->
-        <div th:if="${message}"
-            style="background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; 
-                    padding: 12px; border-radius: 8px; margin-bottom: 1.2rem; font-size: 0.9rem;">
+        <!-- Thymeleaf message (will be replaced if server renders, but we also use JS) -->
+        <div id="server-message" th:if="${message}" class="message-box success" style="display:block;">
             <span th:text="${message}"></span>
         </div>
 
+        <!-- JavaScript-controlled message box -->
+        <div id="js-message" class="message-box"></div>
+
         <!-- Form -->
-        <form class="login-form" th:action="@{/forgot-password}" method="post" autocomplete="off">
+        <form id="forgot-form" class="login-form" th:action="@{/forgot-password}" method="post" autocomplete="off">
             <!-- Email -->
             <div class="form-group">
                 <label for="email">Email address</label>
                 <div class="input-wrapper">
                     <span class="icon">
-                        <!-- Mail icon -->
                         <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                             <rect x="2" y="4" width="20" height="16" rx="2" />
                             <path d="M22 4L12 13 2 4" stroke-linecap="round" stroke-linejoin="round" />
@@ -306,7 +336,7 @@
             </div>
 
             <!-- Submit Button -->
-            <button type="submit" class="btn-login">Send Reset Link</button>
+            <button type="submit" id="submit-btn" class="btn-login">Send Reset Link</button>
         </form>
 
         <!-- Back to login link -->
@@ -320,6 +350,82 @@
             <a href="mailto:help@info.com">Contact us at help@info.com</a>
         </div>
     </div>
+
+    <!-- JavaScript for form submission -->
+    <script>
+        (function() {
+            const form = document.getElementById('forgot-form');
+            const submitBtn = document.getElementById('submit-btn');
+            const emailInput = document.getElementById('email');
+            const jsMessage = document.getElementById('js-message');
+            const serverMessage = document.getElementById('server-message');
+
+            // Function to show a message in the JS message box
+            function showMessage(text, type) {
+                jsMessage.textContent = text;
+                jsMessage.className = 'message-box ' + type;
+                jsMessage.style.display = 'block';
+                // Hide any server message that might be visible
+                if (serverMessage) serverMessage.style.display = 'none';
+            }
+
+            function hideMessage() {
+                jsMessage.style.display = 'none';
+                jsMessage.className = 'message-box';
+                if (serverMessage) serverMessage.style.display = 'none';
+            }
+
+            form.addEventListener('submit', async function(e) {
+                e.preventDefault();  // Stop the normal page reload
+
+                // Basic email validation
+                const email = emailInput.value.trim();
+                if (!email || !email.includes('@')) {
+                    showMessage('Please enter a valid email address.', 'error');
+                    return;
+                }
+
+                // Disable button and show loading state
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Sending...';
+                hideMessage();
+
+                try {
+                    // Use the form's action URL (Thymeleaf will have set it to /forgot-password)
+                    const actionUrl = form.getAttribute('action') || '/forgot-password';
+
+                    const response = await fetch(actionUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        },
+                        body: 'email=' + encodeURIComponent(email)
+                    });
+
+                    if (response.ok) {
+                        // Get the response text (the HTML page)
+                        const html = await response.text();
+                        // If the server returned the page with a message, we don't need to parse it;
+                        // we can just show a generic success message.
+                        showMessage('If that email is registered, a reset link has been sent. Check your inbox.', 'success');
+                    } else if (response.status === 404) {
+                        showMessage('Error: The server endpoint was not found. Please check the URL.', 'error');
+                    } else if (response.status === 500) {
+                        showMessage('Server error. Please try again later.', 'error');
+                    } else {
+                        showMessage('Something went wrong. Please try again.', 'error');
+                    }
+                } catch (error) {
+                    console.error('Fetch error:', error);
+                    showMessage('Network error. Please check your connection and try again.', 'error');
+                } finally {
+                    // Re-enable button and reset text
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Send Reset Link';
+                }
+            });
+        })();
+    </script>
 
 </body>
 </html>

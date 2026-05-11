@@ -1,5 +1,7 @@
 package com.aclc.web.model;
 
+import java.time.LocalDateTime;
+
 import javax.persistence.*;
 
 @Entity
@@ -10,9 +12,10 @@ public class User {
 
     @Column(unique = true, nullable = false)
     private String username;
-
     private String email;
-
+    private String resetToken;
+    private LocalDateTime resetTokenExpiry;
+    
     @Column(name = "password_hash")
     private String passwordHash;
 
@@ -28,7 +31,11 @@ public class User {
     public String getUsername() { return username; }
     public String getEmail() { return email; }
     public String getPasswordHash() { return passwordHash; }
+    public String getResetToken() { return resetToken; }
+    public void setResetToken(String resetToken) { this.resetToken = resetToken; }
 
+    public LocalDateTime getResetTokenExpiry() { return resetTokenExpiry; }
+    public void setResetTokenExpiry(LocalDateTime resetTokenExpiry) { this.resetTokenExpiry = resetTokenExpiry; }
     public void setUsername(String username) { this.username = username; }
     public void setEmail(String email) { this.email = email; }
     public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }

@@ -13,32 +13,37 @@ public class SimilarityService {
 
     private final ResearchTitleRepository titleRepo;
     private final SimilarityUtil util = new SimilarityUtil();
+    private volatile boolean ready = false;
 
     public SimilarityService(ResearchTitleRepository titleRepo) {
         this.titleRepo = titleRepo;
     }
 
-    /**
-     * Load all active titles (excluding Hard Bind) and initialise the similarity engine.
-     */
     @PostConstruct
-    public void init() {
-        List<ResearchTitle> activeTitles = titleRepo.findByRecordState("ACTIVE");
-        List<String> titles = new ArrayList<>();
-        for (ResearchTitle rt : activeTitles) {
-            if (rt.getResearchTitle() != null && !rt.getResearchTitle().trim().isEmpty()) {
-                titles.add(rt.getResearchTitle());
+    public void init() {    
+        new Thread(() -> {
+            try {
+                List<ResearchTitle> activeTitles = titleRepo.findByRecordState("ACTIVE");
+                List<String> titles = new ArrayList<>();
+                for (ResearchTitle rt : activeTitles) {
+                    if (rt.getResearchTitle() != null && !rt.getResearchTitle().trim().isEmpty()) {
+                        titles.add(rt.getResearchTitle());
+                    }
+                }
+                util.initialize(titles);
+                ready = true;
+                System.out.println("[SimilarityService] Initialized with " + titles.size() + " titles.");
+            } catch (Exception e) {
+                System.err.println("[SimilarityService] Failed to initialize – duplicate detection disabled: " + e.getMessage());
             }
-        }
-        util.initialize(titles);
+        }).start();
     }
 
-    /**
-     * Check a new title for duplicates.
-     * @param newTitle the title to check
-     * @return a list of existing titles that have a similarity score >= 0.7, each with its score.
-     */
     public List<DuplicateInfo> findDuplicates(String newTitle) {
+        if (!ready) {
+            System.err.println("[SimilarityService] Not ready – skipping duplicate check.");
+            return new ArrayList<>();
+        }
         List<DuplicateInfo> duplicates = new ArrayList<>();
         List<ResearchTitle> activeTitles = titleRepo.findByRecordState("ACTIVE");
         for (ResearchTitle rt : activeTitles) {

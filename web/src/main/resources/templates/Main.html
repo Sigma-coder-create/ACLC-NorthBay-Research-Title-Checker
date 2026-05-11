@@ -1299,6 +1299,7 @@
                 }
             }
         });
+
         function filterSections() {
             const strandSelect = document.getElementById('strand');
             const sectionSelect = document.getElementById('section');
@@ -1324,6 +1325,22 @@
                 sectionSelect.value = firstVisible.value;
             }
         }
+        (function() {
+            var params = new URLSearchParams(window.location.search);
+            var warningMsg = params.get('warning');
+            if (warningMsg) {
+                var attempt = 0;
+                function tryShow() {
+                    if (typeof showToast === 'function') {
+                        showToast('warning', decodeURIComponent(warningMsg));
+                    } else if (attempt < 20) {
+                        attempt++;
+                        setTimeout(tryShow, 100);
+                    }
+                }
+                setTimeout(tryShow, 200);
+            }
+        })();
         /* ==================== INITIALIZATION ==================== */
         console.log('🚀 Swing UI Dashboard Ready (v2.7.0)');
         console.log('  Live PH Clock, Dynamic User, Icon Library');

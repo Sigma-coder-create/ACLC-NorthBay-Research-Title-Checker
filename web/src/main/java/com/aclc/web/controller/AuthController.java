@@ -1,5 +1,6 @@
 package com.aclc.web.controller;
 
+import com.aclc.web.model.PasswordResetToken;
 import com.aclc.web.model.ResearchTitle;
 import com.aclc.web.model.Section;
 import com.aclc.web.repository.ResearchTitleRepository;
@@ -19,9 +20,10 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import com.aclc.web.service.EmailService;
 import com.aclc.web.service.SimilarityService;
 import java.net.URLEncoder;
+import java.time.LocalDateTime;
+import com.aclc.web.model.User;
 import javax.servlet.http.HttpSession;
 import java.util.List;
-import com.aclc.web.model.User;
 
 @Controller
 public class AuthController {
@@ -30,7 +32,6 @@ public class AuthController {
     private final ResearchTitleRepository researchTitleRepo;
     private final SectionRepository sectionRepo;
     private final UserRepository userRepo;  
-    private final Map<String, String> resetTokens = new HashMap<>();
     private final EmailService emailService;
     private final SimilarityService similarityService;
 
@@ -181,7 +182,7 @@ public class AuthController {
                 "Submission blocked: this title is %d%% similar to \"%s\" (SY %s). Please modify your title.",
                 percent, shortTitle, top.schoolYear
             );
-            return "redirect:/main?view=forms&warning=" + encode("Title cannot be empty.");
+            return "redirect:/main?view=forms&warning=" + encode(warnMsg);
         }
 
         // ----- Original saving logic (unchanged) -----
@@ -245,33 +246,41 @@ public class AuthController {
 
     @PostMapping("/forgot-password")
     public String handleForgotPassword(@RequestParam String email, Model model) {
-        // Check if email exists
-        if (!userRepo.findByUsernameOrEmail(email, email).isPresent()) {
-            model.addAttribute("message",
-                    "If an account with that email exists, a reset link has been sent.");
+        User user = userRepo.findByUsernameOrEmail(email, email).orElse(null);
+        if (user == null) {
+            model.addAttribute("message", "If an account exists, a reset link has been sent.");
             return "Forgot";
         }
 
-        // Generate a unique token
+        // Generate token and set expiry
         String token = UUID.randomUUID().toString();
-        resetTokens.put(token, email);
+        user.setResetToken(token);
+        user.setResetTokenExpiry(LocalDateTime.now().plusHours(1)); // 1 hour validity
+        userRepo.save(user);
 
-        // Send the email
-        emailService.sendResetEmail(email, token);
+        // Send email
+        try {
+            emailService.sendResetEmail(user.getEmail(), token);
+        } catch (Exception e) {
+            System.err.println("Failed to send reset email: " + e.getMessage());
+        }
 
-        model.addAttribute("message",
-                "If an account with that email exists, a reset link has been sent.");
+        model.addAttribute("message", "If an account exists, a reset link has been sent.");
         return "Forgot";
     }
+
     @GetMapping("/reset-password")
     public String showResetPasswordForm(@RequestParam String token, Model model) {
-        if (!resetTokens.containsKey(token)) {
+        User user = userRepo.findByResetToken(token).orElse(null);
+        if (user == null || user.getResetTokenExpiry() == null ||
+                user.getResetTokenExpiry().isBefore(LocalDateTime.now())) {
             model.addAttribute("error", "Invalid or expired reset link.");
             return "Forgot";
         }
         model.addAttribute("token", token);
         return "ResetPassword";
     }
+
     @PostMapping("/reset-password")
     public String handleResetPassword(@RequestParam String token,
                                     @RequestParam String password,
@@ -288,21 +297,26 @@ public class AuthController {
             return "ResetPassword";
         }
 
-        String email = resetTokens.remove(token);
-        if (email == null) {
+        // Look up the user by the token in the database
+        User user = userRepo.findByResetToken(token).orElse(null);
+        if (user == null || user.getResetTokenExpiry() == null ||
+                user.getResetTokenExpiry().isBefore(LocalDateTime.now())) {
             model.addAttribute("error", "Invalid or expired reset link.");
             return "Forgot";
         }
 
-        // Update user's password
-        User user = userRepo.findByUsernameOrEmail(email, email).orElse(null);
-        if (user != null) {
-            user.setPasswordHash(new BCryptPasswordEncoder().encode(password));
-            userRepo.save(user);
-        }
+        // Update the password
+        user.setPasswordHash(new BCryptPasswordEncoder().encode(password));
+
+        // 🔥 Clear the reset token so it can't be used again
+        user.setResetToken(null);
+        user.setResetTokenExpiry(null);
+
+        userRepo.save(user);
 
         return "redirect:/login?resetSuccess";
     }
+
     private String encode(String value) {
         try {
             return URLEncoder.encode(value, java.nio.charset.StandardCharsets.UTF_8.toString());
