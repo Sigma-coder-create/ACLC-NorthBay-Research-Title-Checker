@@ -1,5 +1,8 @@
 package com.finals.db;
 
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
+
 import java.sql.*;
 import java.util.Properties;
 import java.io.InputStream;
@@ -9,7 +12,7 @@ import javax.crypto.spec.SecretKeySpec;
 public class DBConnection {
 
     private static Properties props = new Properties();
-    private static Connection mysqlConnection = null;
+    private static HikariDataSource hikariPool = null;
 
     static {
         boolean loaded = false;
@@ -41,6 +44,32 @@ public class DBConnection {
         }
         // Resolve environment variable placeholders
         resolveEnvPlaceholders();
+
+        // Initialize HikariCP pool
+        try {
+            HikariConfig config = new HikariConfig();
+            String url = "jdbc:mysql://" + props.getProperty("mysql.host") + ":" +
+                        props.getProperty("mysql.port") + "/" + props.getProperty("mysql.db") +
+                        "?sslMode=REQUIRED&serverTimezone=UTC&allowPublicKeyRetrieval=true&connectTimeout=3000";
+            config.setJdbcUrl(url);
+            config.setUsername(props.getProperty("mysql.user"));
+            config.setPassword(props.getProperty("mysql.password"));
+            config.setMaximumPoolSize(10);               // adjust based on load
+            config.setMinimumIdle(2);
+            config.setConnectionTimeout(30000);
+            config.setIdleTimeout(600000);
+            config.setMaxLifetime(1800000);
+            config.addDataSourceProperty("cachePrepStmts", "true");
+            config.addDataSourceProperty("prepStmtCacheSize", "250");
+            config.addDataSourceProperty("prepStmtCacheSqlLimit", "2048");
+            config.addDataSourceProperty("useServerPrepStmts", "true");
+
+            hikariPool = new HikariDataSource(config);
+            System.out.println("[DB] HikariCP pool initialized.");
+        } catch (Exception e) {
+            System.err.println("[DB] ❌ HikariCP pool creation failed: " + e.getMessage());
+            // If pool fails, fall back to direct connections? For robustness, we leave null.
+        }
     }
 
     private static void resolveEnvPlaceholders() {
@@ -89,37 +118,23 @@ public class DBConnection {
     }
 
     public static Connection getConnection() {
-        Connection conn = getMySQLConnection();
-        if (conn != null) {
-            System.out.println("[DB] Using MySQL");
-            return conn;
-        }
-        System.err.println("[DB] ❌ No MySQL connection available!");
-        return null;
+        // Returns a pooled MySQL connection (compatible with existing code)
+        return getMySQLConnection();
     }
 
     public static Connection getMySQLConnection() {
+        if (hikariPool == null) {
+            System.err.println("[DB] ❌ Connection pool not available");
+            return null;
+        }
         try {
-            Class.forName("com.mysql.cj.jdbc.Driver");
-            String url = "jdbc:mysql://" + props.getProperty("mysql.host") + ":" +
-                    props.getProperty("mysql.port") + "/" + props.getProperty("mysql.db") +
-                    "?sslMode=REQUIRED&serverTimezone=UTC&allowPublicKeyRetrieval=true&connectTimeout=3000";
-            Connection conn = DriverManager.getConnection(url,
-                    props.getProperty("mysql.user"),
-                    props.getProperty("mysql.password"));
-            System.out.println("[MySQL] ✅ Connected successfully.");
-            ensureUsersTableExists(conn);   // ← renamed & changed
-            return conn;
-        } catch (Exception e) {
-            System.err.println("[MySQL] ❌ Connection failed: " + e.getMessage());
+            return hikariPool.getConnection();
+        } catch (SQLException e) {
+            System.err.println("[DB] ❌ Failed to get connection from pool: " + e.getMessage());
             return null;
         }
     }
 
-    /**
-     * Ensures the users table exists with the required columns.
-     * No separate admin table is used – roles are stored in the 'role' column.
-     */
     public static void ensureUsersTableExists(Connection mysql) {
         String sql = "CREATE TABLE IF NOT EXISTS users (" +
                      "id INT AUTO_INCREMENT PRIMARY KEY, " +
@@ -138,11 +153,9 @@ public class DBConnection {
     }
 
     public static void closeConnections() {
-        try {
-            if (mysqlConnection != null && !mysqlConnection.isClosed())
-                mysqlConnection.close();
-        } catch (Exception e) {
-            e.printStackTrace();
+        if (hikariPool != null && !hikariPool.isClosed()) {
+            hikariPool.close();
+            System.out.println("[DB] HikariCP pool shut down.");
         }
     }
 }

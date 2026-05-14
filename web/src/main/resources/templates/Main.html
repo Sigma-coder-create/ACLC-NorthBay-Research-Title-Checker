@@ -415,7 +415,6 @@
             border:1px solid var(--border);
         }
 
-        /* Generic button */
         .btn {
             padding:7px 15px; border-radius:7px; border:1px solid var(--border);
             cursor:pointer; font-size:12px; background:var(--surface); color:var(--text);
@@ -435,6 +434,47 @@
             .sidebar-nav a { justify-content:center; }
             .sidebar-header { justify-content:center; padding:16px 8px; }
         }
+
+        .autocomplete-wrapper {
+            position: relative;
+            display: inline-block;
+        }
+
+        .autocomplete-items {
+            position: absolute;
+            border: 1px solid var(--border);
+            border-radius: 0 0 8px 8px;
+            z-index: 9999;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: var(--surface);
+            max-height: 250px;
+            overflow-y: auto;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+        }
+
+        .autocomplete-items div {
+            padding: 10px 14px;
+            cursor: pointer;
+            font-size: 13px;
+            color: var(--text);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .autocomplete-items div:hover {
+            background: var(--primary-light);
+        }
+
+        .autocomplete-items div strong {
+            color: var(--primary);
+        }
+
+        .no-match {
+            padding: 10px 14px;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
     </style>
 </head>
 <body>
@@ -444,8 +484,10 @@
          ============================================================ -->
     <aside class="sidebar">
         <div class="sidebar-header">
-            <div class="logo">S</div>
-            <span class="title">SWING UI</span>
+            <div class="logo" style="overflow:hidden; display:flex; align-items:center; justify-content:center;">
+                <img th:src="@{/images/AMA.png}" alt="AMA Logo" style="height:100%; width:auto;" />
+            </div>
+            <span class="title">ACLC North Bay Research <br>Title Management</span>
         </div>
         <nav class="sidebar-nav">
             <div class="nav-section">
@@ -464,7 +506,7 @@
                 <div class="nav-section-title">Components</div>
 
                 <a href="#" data-nav="hardbind">
-                    <span class="icon">📑</span> Hard Bind
+                    <span class="icon">📑</span> Hard Bound
                 </a>
 
             </div>
@@ -477,22 +519,8 @@
                 <a href="#" data-nav="about">
                     <span class="icon">ℹ️</span> About
                 </a>
-                <a href="#" data-nav="logout">
-                    <span class="icon">🚪</span> Logout
-                </a>
             </div>
         </nav>
-        <div class="sidebar-footer">
-            <div class="user-info">
-                <!-- Avatar: first 2 characters of the logged‑in username -->
-                <div class="avatar" style="background:#6d83f8;"
-                    th:text="${session.user != null ? #strings.substring(session.user,0,2) : 'U'}">U</div>
-                <div class="user-details">
-                    <strong th:text="${loggedInUsername != null ? loggedInUsername : session.user}">User</strong>
-                    <span th:text="${loggedInEmail != null ? loggedInEmail : 'No email set'}">No email set</span>
-                </div>
-            </div>
-        </div>
     </aside>
 
     <!-- ============================================================
@@ -501,10 +529,13 @@
     <div class="main">
         <!-- Topbar -->
         <header class="topbar">
-            <div class="search-box">
-                <span>🔍</span>
-                <input type="search" placeholder="Quick Search..." id="quickSearch">
-                <span class="shortcut">Ctrl F</span>
+            <div class="autocomplete-wrapper" style="width:260px;">
+                <div class="search-box">
+                    <span>🔍</span>
+                    <input type="search" placeholder="Quick Search..." id="quickSearch" autocomplete="off">
+                    <span class="shortcut">Ctrl F</span>
+                </div>
+                <div id="autocomplete-list" class="autocomplete-items" style="display:none;"></div>
             </div>
             <div class="spacer"></div>
             <!-- Live Philippine Time Clock -->
@@ -524,13 +555,13 @@
                         <div class="stat-icon blue">📋</div>
                         <div class="stat-value" th:text="${totalAllActive}">0</div>
                         <div class="stat-label">Total Research Titles</div>
-                        <div class="stat-change up">All submitted (incl. Hard Bind)</div>
+                        <div class="stat-change up">All submitted (incl. Hard Bound)</div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-icon green">📝</div>
                         <div class="stat-value" th:text="${totalInputtedExcludingHardBind}">0</div>
                         <div class="stat-label">Inputted Research Titles</div>
-                        <div class="stat-change up">Active submissions (excl. Hard Bind)</div>
+                        <div class="stat-change up">Active submissions (excl. Hard Bound)</div>
                     </div>
 
                     <!-- Accepted Titles (unchanged) -->
@@ -609,9 +640,16 @@
                                     <input type="checkbox" id="researchPaper" name="researchPaper" value="✔" checked> Research Paper
                                 </label>
                             </div>
-                            <button type="submit" class="btn btn-primary" style="align-self:flex-start;">
-                                Submit Research Title
-                            </button>
+                            <div style="display:flex; gap:10px; align-items:center;">
+                                <!-- The new Test Similarity button -->
+                                <button type="button" id="testSimilarityBtn" class="btn"
+                                        style="font-size:11px; background: var(--surface-alt); color: var(--text);">
+                                    🔍 Test Similarity
+                                </button>
+                                <button type="submit" class="btn btn-primary">
+                                    Submit Research Title
+                                </button>
+                            </div>
                         </div>
                     </form>
                 </div>
@@ -798,12 +836,13 @@
             <!-- ======================== ABOUT VIEW ======================== -->
             <div id="view-about" style="display:none;">
                 <div class="chart-section" style="text-align:center;">
-                    <h3>About Swing UI</h3>
+                    <h3>ACLC AMA North Bay</h3>
                     <p style="color:var(--text-secondary);font-size:13px;margin-top:8px;">Demo: v2.7.0</p>
                     <p style="color:var(--text-secondary);font-size:12px;">Running on: Java Eclipse Adoptium v21.0.10</p>
-                    <p style="color:var(--text-secondary);font-size:12px;">Memory: <span id="memInfo">36.3 MB</span> of 56.0 MB</p>
+                    <p style="color:var(--text-secondary);font-size:12px;">And Was Made By Moralidad, Terence Jahred L. <br>
+                        For a Project In School at ACLC Northbay </p>
                     <div style="margin-top:20px;padding:20px;background:var(--surface-alt);border-radius:12px;">
-                        <p style="font-size:13px;">This HTML recreation captures the essence of the Swing UI component library in a modern web format.</p>
+                        <p style="font-size:13px;">This Was Made Possible Because of ACLC AMA NorthBay </p>
                     </div>
                 </div>
             </div>
@@ -858,22 +897,12 @@
             </div>
 
 
-            <!-- ======================== LOGOUT VIEW ======================== -->
-            <div id="view-logout" style="display:none;">
-                <div class="chart-section" style="text-align:center;">
-                    <h3>Logout</h3>
-                    <p style="color:var(--text-secondary);font-size:13px;">Are you sure you want to log out?</p>
-                    <button class="btn btn-primary" style="margin-top:12px;" onclick="confirmLogout()">Confirm Logout</button>
-                </div>
-            </div>
-
-
             <!-- ======================== PAGINATION DEMO VIEW ======================== -->
             <div id="view-hardbind" style="display:none;">
                 <div class="table-section">
-                    <h3>Hard Binded Research Titles</h3>
+                    <h3>Hard Bound Research Titles</h3>
                     <p style="color:var(--text-secondary);font-size:12px;">
-                        Only titles with <strong>Status = Hard Bind</strong> are shown.
+                        Only titles with <strong>Status = Hard Bound</strong> are shown.
                     </p>
 
                     <div style="overflow-x:auto; margin-top:16px;">
@@ -895,14 +924,14 @@
                                 </tr>
                                 <tr th:if="${hardBindTitles.content == null || hardBindTitles.content.empty}">
                                     <td colspan="4" style="text-align:center;padding:16px;">
-                                        No Hard Binded titles found.
+                                        No Hard Bound titles found.
                                     </td>
                                 </tr>
                             </tbody>
                         </table>
                     </div>
 
-                    <!-- Pagination for Hard Bind -->
+                    <!-- Pagination for Hard Bound -->
                     <div style="margin-top:12px;">
                         <span>
                             Page <span th:text="${hardBindTitles.number + 1}"></span> of
@@ -937,7 +966,8 @@
         <div style="height:28px;background:var(--surface);border-top:1px solid var(--border);display:flex;align-items:center;padding:0 16px;font-size:10px;color:var(--text-secondary);flex-shrink:0;gap:16px;">
             <span>Demo: v2.7.0</span>
             <span>Running on: Java Eclipse Adoptium v21.0.10</span>
-            <span id="memoryInfo">36.3 MB of 56.0 MB</span>
+            <span>This Was made by Terence Jahred L. Moralidad
+         For a Project In School at ACLC Northbay </span>
         </div>
     </div><!-- /main -->
 
@@ -1212,13 +1242,6 @@
             showToast('success', 'Date/time applied: ' + val.replace('T', ' '));
         }
 
-        /* ==================== LOGOUT ==================== */
-        function confirmLogout() {
-            showToast('info', 'Logging out...');
-            setTimeout(() => {
-                window.location.href = '/login';
-            }, 500);
-        }
 
         /* ==================== NAVIGATION (Sidebar) ==================== */
         const navLinks = document.querySelectorAll('.sidebar-nav a[data-nav]');
@@ -1259,14 +1282,6 @@
             });
         });
 
-        /* ==================== MEMORY SIMULATION ==================== */
-        const memEl = document.getElementById('memoryInfo');
-        if (memEl) {
-            setInterval(() => {
-                const used = (33 + Math.random() * 10).toFixed(1);
-                memEl.textContent = used + ' MB of 56.0 MB';
-            }, 5000);
-        }
 
         /* ==================== QUICK SEARCH ==================== */
         document.getElementById('quickSearch')?.addEventListener('keypress', function(e) {
@@ -1341,6 +1356,148 @@
                 setTimeout(tryShow, 200);
             }
         })();
+        (function() {
+            let allTitles = [];
+            const searchInput = document.getElementById('quickSearch');
+            const listContainer = document.getElementById('autocomplete-list');
+            if (!searchInput || !listContainer) return;
+
+            // Fetch all titles once
+            fetch('/api/titles')
+                .then(res => res.json())
+                .then(data => { allTitles = data; })
+                .catch(err => console.error('Cannot load titles for autocomplete', err));
+
+            // Show suggestions
+            searchInput.addEventListener('input', function() {
+                const query = this.value.trim().toLowerCase();
+                if (query.length === 0) {
+                    listContainer.style.display = 'none';
+                    return;
+                }
+                const matches = allTitles.filter(t => t.title.toLowerCase().includes(query));
+                listContainer.innerHTML = '';
+                if (matches.length === 0) {
+                    listContainer.innerHTML = '<div class="no-match">No titles found</div>';
+                } else {
+                    matches.slice(0, 10).forEach(t => {
+                        const div = document.createElement('div');
+                        div.innerHTML = highlightMatch(t.title, query);
+                        div.addEventListener('click', () => {
+                            // Determine target view based on status
+                            const targetView = t.status === 'Hard Bind' ? 'hardbind' : 'table';
+
+                            // Activate sidebar link
+                            document.querySelectorAll('.sidebar-nav a').forEach(l => l.classList.remove('active'));
+                            const navLink = document.querySelector('.sidebar-nav a[data-nav="' + targetView + '"]');
+                            if (navLink) navLink.classList.add('active');
+
+                            // Show the right view
+                            document.querySelectorAll('[id^="view-"]').forEach(v => v.style.display = 'none');
+                            const viewDiv = document.getElementById('view-' + targetView);
+                            if (viewDiv) viewDiv.style.display = 'block';
+
+                            // Set search input and apply filter
+                            searchInput.value = t.title;
+                            filterCurrentTable(t.title.toLowerCase());
+                            listContainer.style.display = 'none';
+                            document.getElementById('mainContent').scrollTop = 0;
+                        });
+                        listContainer.appendChild(div);
+                    });
+                }
+                listContainer.style.display = 'block';
+            });
+
+            function highlightMatch(text, query) {
+                const idx = text.toLowerCase().indexOf(query);
+                if (idx === -1) return text;
+                const before = text.substring(0, idx);
+                const match = text.substring(idx, idx + query.length);
+                const after = text.substring(idx + query.length);
+                return `${before}<strong>${match}</strong>${after}`;
+            }
+
+            // Hide dropdown when clicking outside
+            document.addEventListener('click', function(e) {
+                if (!searchInput.contains(e.target) && !listContainer.contains(e.target)) {
+                    listContainer.style.display = 'none';
+                }
+            });
+
+            // Filter the currently visible table (works for both Table & Hard Bind views)
+            function filterCurrentTable(query) {
+                const tableView = document.getElementById('view-table');
+                const hardBindView = document.getElementById('view-hardbind');
+                let activeTableContainer = null;
+
+                if (tableView && tableView.style.display !== 'none') {
+                    activeTableContainer = tableView;
+                } else if (hardBindView && hardBindView.style.display !== 'none') {
+                    activeTableContainer = hardBindView;
+                }
+                if (!activeTableContainer) return;
+
+                const rows = activeTableContainer.querySelectorAll('table tbody tr');
+                let anyVisible = false;
+                rows.forEach(row => {
+                    const titleCell = row.cells[0];
+                    if (!titleCell) return;
+                    const titleText = titleCell.textContent.toLowerCase();
+                    const match = query === '' || titleText.includes(query);
+                    row.style.display = match ? '' : 'none';
+                    if (match) anyVisible = true;
+                });
+
+                const existingNoMatch = activeTableContainer.querySelector('.no-match-row');
+                if (!anyVisible && query !== '') {
+                    if (!existingNoMatch) {
+                        const tbody = activeTableContainer.querySelector('table tbody');
+                        const tr = document.createElement('tr');
+                        tr.className = 'no-match-row';
+                        tr.innerHTML = '<td colspan="7" style="text-align:center;padding:16px;">No matching titles found.</td>';
+                        tbody.appendChild(tr);
+                    }
+                } else if (existingNoMatch) {
+                    existingNoMatch.remove();
+                }
+            }
+        })();
+            (function() {
+            const testBtn = document.getElementById('testSimilarityBtn');
+            if (!testBtn) return;
+
+            testBtn.addEventListener('click', async function() {
+                const titleInput = document.getElementById('researchTitle');
+                const title = titleInput.value.trim();
+                if (!title) {
+                    if (typeof showToast === 'function') showToast('warning', 'Please enter a title to test.');
+                    return;
+                }
+
+                // Show checking feedback
+                testBtn.disabled = true;
+                testBtn.textContent = 'Checking...';
+
+                try {
+                    const response = await fetch('/check-similarity?title=' + encodeURIComponent(title));
+                    const data = await response.json();
+                    if (data.blocked) {
+                        const msg = `⚠️ ${data.percent}% similar to “${data.similarTitle}” (SY ${data.schoolYear}). Would be blocked.`;
+                        if (typeof showToast === 'function') showToast('error', msg);
+                    } else {
+                        if (typeof showToast === 'function') showToast('success', '✅ Title is unique enough to submit.');
+                    }
+                } catch (err) {
+                    console.error(err);
+                    if (typeof showToast === 'function') showToast('error', 'Failed to check similarity.');
+                } finally {
+                    testBtn.disabled = false;
+                    testBtn.textContent = '🔍 Test Similarity';
+                }
+            });
+        })();
+
         /* ==================== INITIALIZATION ==================== */
         console.log('🚀 Swing UI Dashboard Ready (v2.7.0)');
         console.log('  Live PH Clock, Dynamic User, Icon Library');

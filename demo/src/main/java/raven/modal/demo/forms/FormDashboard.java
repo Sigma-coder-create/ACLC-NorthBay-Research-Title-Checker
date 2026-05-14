@@ -61,7 +61,7 @@ public class FormDashboard extends Form {
 
     private void loadData() {
         SwingWorker<Void, Void> worker = new SwingWorker<Void, Void>() {
-            private int total = 0, pending = 0, approved = 0, denied = 0;
+            private int total = 0, approved = 0;
             private org.jfree.data.time.TimeSeriesCollection chartDataset;
 
             @Override
@@ -70,19 +70,15 @@ public class FormDashboard extends Form {
                     if (conn == null) return null;
 
                     // ---- Card statistics ----
-                    String countSql = "SELECT "
-                            + "COUNT(*) AS total, "
-                            + "SUM(CASE WHEN Status = 'Pending' THEN 1 ELSE 0 END) AS pending, "
-                            + "SUM(CASE WHEN Status = 'Approved' THEN 1 ELSE 0 END) AS approved, "
-                            + "SUM(CASE WHEN Status = 'Denied' THEN 1 ELSE 0 END) AS denied "
-                            + "FROM aclc_research_titles WHERE record_state = 'ACTIVE'";
+                String countSql = "SELECT "
+                        + "COUNT(*) AS total, "
+                        + "SUM(CASE WHEN Status = 'Approved' THEN 1 ELSE 0 END) AS approved "
+                        + "FROM aclc_research_titles WHERE record_state = 'ACTIVE'";
                     try (PreparedStatement ps = conn.prepareStatement(countSql);
                          ResultSet rs = ps.executeQuery()) {
                         if (rs.next()) {
                             total = rs.getInt("total");
-                            pending = rs.getInt("pending");
                             approved = rs.getInt("approved");
-                            denied = rs.getInt("denied");
                         }
                     }
 
@@ -115,9 +111,8 @@ public class FormDashboard extends Form {
             protected void done() {
                 DecimalFormat fmt = new DecimalFormat("#,###");
                 cardBox.setValueAt(0, fmt.format(total), "Total Research Titles", "", true);
-                cardBox.setValueAt(1, fmt.format(pending), "Pending", "", false);
-                cardBox.setValueAt(2, fmt.format(approved), "Approved", "", true);
-                cardBox.setValueAt(3, fmt.format(denied), "Denied", "", false);
+
+                cardBox.setValueAt(1, fmt.format(approved), "Approved", "", false);
 
                 if (chartDataset != null && timeSeriesChart != null) {
                     timeSeriesChart.setDataset(chartDataset);
@@ -184,13 +179,12 @@ public class FormDashboard extends Form {
                 if (timeSeriesChart != null) {
                     DefaultChartTheme.applyTheme(timeSeriesChart.getFreeChart());
                     // DefaultChartTheme.applyTheme(candlestickChart.getFreeChart());  // commented out
-                    // DefaultChartTheme.applyTheme(barChart.getFreeChart());          // commented out
-                    // DefaultChartTheme.applyTheme(pieChart.getFreeChart());          // commented out
-                    // DefaultChartTheme.applyTheme(spiderChart.getFreeChart());       // commented out
+                    // DefaultChartTheme.applyTheme(barChart.getFreeChart());          // 
+                    // DefaultChartTheme.applyTheme(pieChart.getFreeChart());          // 
+                    // DefaultChartTheme.applyTheme(spiderChart.getFreeChart());       // 
                     cardBox.setCardIconColor(0, DefaultChartTheme.getColor(0));
                     cardBox.setCardIconColor(1, DefaultChartTheme.getColor(1));
-                    cardBox.setCardIconColor(2, DefaultChartTheme.getColor(2));
-                    cardBox.setCardIconColor(3, DefaultChartTheme.getColor(3));
+
                 }
             }
         });
@@ -218,8 +212,6 @@ public class FormDashboard extends Form {
         cardBox = new CardBox();
         cardBox.addCardItem(createIcon("raven/modal/demo/icons/dashboard/customer.svg", DefaultChartTheme.getColor(0)), "");
         cardBox.addCardItem(createIcon("raven/modal/demo/icons/dashboard/income.svg", DefaultChartTheme.getColor(1)), "");
-        cardBox.addCardItem(createIcon("raven/modal/demo/icons/dashboard/expense.svg", DefaultChartTheme.getColor(2)), "");
-        cardBox.addCardItem(createIcon("raven/modal/demo/icons/dashboard/profit.svg", DefaultChartTheme.getColor(3)), "");
         panel.add(cardBox);
         panelLayout.add(panel);
     }

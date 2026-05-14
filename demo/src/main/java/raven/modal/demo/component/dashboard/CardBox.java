@@ -35,9 +35,12 @@ public class CardBox extends JPanel {
     }
 
     public void setValueAt(int index, String value, String description, String tags, boolean up) {
+    if (index >= 0 && index < cardItems.size()) {
         cardItems.get(index).setValue(value, description, tags, up);
+    } else {
+        System.err.println("CardBox.setValueAt: index " + index + " out of bounds (size=" + cardItems.size() + ")");
     }
-
+}
     public void setCardIconColor(int index, Color color) {
         cardItems.get(index).setCardIconColor(color);
     }

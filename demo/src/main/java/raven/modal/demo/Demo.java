@@ -1,5 +1,6 @@
 package raven.modal.demo;
 
+import com.finals.db.DBConnection;
 import com.formdev.flatlaf.FlatClientProperties;
 import com.formdev.flatlaf.FlatLaf;
 import com.formdev.flatlaf.fonts.roboto.FlatRobotoFont;
@@ -36,5 +37,6 @@ public class Demo extends JFrame {
         UIManager.put("defaultFont", FontUtils.getCompositeFont(FlatRobotoFont.FAMILY, Font.PLAIN, 13));
         DemoPreferences.setupLaf();
         EventQueue.invokeLater(() -> new Demo().setVisible(true));
+        Runtime.getRuntime().addShutdownHook(new Thread(DBConnection::closeConnections));
     }
 }

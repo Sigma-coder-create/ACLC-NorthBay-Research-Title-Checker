@@ -659,8 +659,8 @@ public class FormTable extends Form {
 
             // Status
             add(new JLabel("Status:"));
-        String[] statuses = {"Pending", "Approved", "Denied", "Hard Bind"};
-        statusCombo = new JComboBox<>(statuses);      // correct: JComboBox<String> inferred from left side
+        String[] statuses = { "Approved", "Hard Bind"};
+        statusCombo = new JComboBox<>(statuses);
         statusCombo.setSelectedItem(status);
         add(statusCombo, "growx");
 
@@ -775,7 +775,7 @@ public class FormTable extends Form {
         tabb.putClientProperty(FlatClientProperties.STYLE, "tabType:card");
         tabb.addTab("Basic table", createBorder(createBasicTable()));
         tabb.addTab("Custom table", createBorder(createCustomTable()));
-        tabb.addTab("Hard Bound", createBorder(createHardBindTable()));   // <-- new
+        tabb.addTab("Hard Bound", createBorder(createHardBindTable()));   
         return tabb;
     }
 
@@ -949,7 +949,29 @@ public class FormTable extends Form {
     private Component createHardBindTable() {
         JPanel panelTable = new JPanel(new MigLayout("fillx,wrap,insets 15 0 10 0", "[fill]", "[][][fill,grow][]"));
 
-        // Only the columns that matter – no ID, Status, or Approved by
+        // ----- Header with search -----
+        JLabel title = new JLabel("Hard Bounded Research Titles");
+        title.putClientProperty(FlatClientProperties.STYLE, "font:bold +2");
+
+        JTextField txtSearch = new JTextField();
+        txtSearch.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "Search hard bind titles...");
+        txtSearch.putClientProperty(FlatClientProperties.TEXT_FIELD_LEADING_ICON,
+                new FlatSVGIcon("raven/modal/demo/icons/search.svg", 0.4f));
+
+        JButton btnSearch = new JButton("Search");
+        JButton btnShowAll = new JButton("Show All");
+
+        JPanel headerPanel = new JPanel(new MigLayout("fillx, insets 0", "[grow][][]"));
+        headerPanel.setOpaque(false);
+        headerPanel.add(txtSearch, "growx");
+        headerPanel.add(btnSearch);
+        headerPanel.add(btnShowAll);
+
+        panelTable.add(title, "wrap");
+        panelTable.add(headerPanel, "growx, wrap");
+        // --------------------------------
+
+        // Columns (same as before)
         Object[] columns = new Object[]{"#", "Research Title", "SY-YR", "Applied", "Strand", "Software", "Webpage", "Research Paper"};
         DefaultTableModel model = new DefaultTableModel(columns, 0) {
             @Override public boolean isCellEditable(int r, int c) { return false; }
@@ -958,64 +980,95 @@ public class FormTable extends Form {
         JScrollPane scrollPane = new JScrollPane(table);
         scrollPane.setBorder(BorderFactory.createEmptyBorder());
 
-        JLabel title = new JLabel("Hard Bounded Research Titles");
-        title.putClientProperty(FlatClientProperties.STYLE, "font:bold +2");
-        panelTable.add(title, "wrap");
-
         panelTable.add(scrollPane, "grow, push");
 
-        // Animated pagination
+        // ----- Pagination (animated) -----
         PaginationAnimation pagination = new PaginationAnimation(10, 1, 50);
         JLabel totalLabel = new JLabel("0");
 
-        // Data loader – fetches only the displayed columns
+        // ----- HardBindLoader (now accepts search) -----
         class HardBindLoader {
             int limit = 20;
-            void load(int page) {
+            void load(int page, String search) {
                 DefaultTableModel m = (DefaultTableModel) table.getModel();
                 m.setRowCount(0);
                 int offset = (page - 1) * limit;
                 try (Connection conn = DBConnection.getMySQLConnection()) {
                     if (conn == null) return;
 
-                    // Count
-                    String countSql = "SELECT COUNT(*) FROM aclc_research_titles WHERE record_state = 'ACTIVE' AND Status = 'Hard Bind'";
-                    PreparedStatement psCount = conn.prepareStatement(countSql);
-                    ResultSet rsCount = psCount.executeQuery();
-                    int total = 0;
-                    if (rsCount.next()) total = rsCount.getInt(1);
-                    totalLabel.setText(DecimalFormat.getInstance().format(total));
-                    int totalPages = (int) Math.ceil((double) total / limit);
-                    pagination.getModel().setPageRange(page, Math.max(1, totalPages));
-
-                    // Data – no ID, Status, Approved by
-                    String sql = "SELECT `Research Title`, `SY-YR`, Applied, Strand, Software, Webpage, `Research Paper` "
-                            + "FROM aclc_research_titles "
-                            + "WHERE record_state = 'ACTIVE' AND Status = 'Hard Bind' "
-                            + "LIMIT ? OFFSET ?";
-                    PreparedStatement psData = conn.prepareStatement(sql);
-                    psData.setInt(1, limit);
-                    psData.setInt(2, offset);
-                    ResultSet rs = psData.executeQuery();
-                    int rowNum = offset + 1;   // start numbering
-                    while (rs.next()) {
-                        m.addRow(new Object[]{
-                                rowNum++,
-                                rs.getString("Research Title"),
-                                rs.getString("SY-YR"),
-                                rs.getString("Applied"),
-                                rs.getString("Strand"),
-                                rs.getString("Software"),
-                                rs.getString("Webpage"),
-                                rs.getString("Research Paper")
-                        });
+                    StringBuilder where = new StringBuilder("record_state = 'ACTIVE' AND Status = 'Hard Bind'");
+                    if (search != null && !search.trim().isEmpty()) {
+                        String like = "%" + search.trim() + "%";
+                        where.append(" AND (`Research Title` LIKE ? OR `SY-YR` LIKE ? OR Applied LIKE ? "
+                                + "OR Strand LIKE ? OR Software LIKE ? OR Webpage LIKE ? OR `Research Paper` LIKE ?)");
                     }
-                } catch (SQLException e) { e.printStackTrace(); }
+
+                    // Count
+                    String countSql = "SELECT COUNT(*) FROM aclc_research_titles WHERE " + where;
+                    try (PreparedStatement ps = conn.prepareStatement(countSql)) {
+                        int idx = 1;
+                        if (!search.trim().isEmpty()) {
+                            for (int i = 0; i < 7; i++) {
+                                ps.setString(idx++, "%" + search.trim() + "%");
+                            }
+                        }
+                        try (ResultSet rs = ps.executeQuery()) {
+                            if (rs.next()) {
+                                int total = rs.getInt(1);
+                                totalLabel.setText(DecimalFormat.getInstance().format(total));
+                                int totalPages = (int) Math.ceil((double) total / limit);
+                                pagination.getModel().setPageRange(page, Math.max(1, totalPages));
+                            }
+                        }
+                    }
+
+                    // Data
+                    String dataSql = "SELECT `Research Title`, `SY-YR`, Applied, Strand, Software, Webpage, `Research Paper` "
+                            + "FROM aclc_research_titles WHERE " + where + " LIMIT ? OFFSET ?";
+                    try (PreparedStatement ps = conn.prepareStatement(dataSql)) {
+                        int idx = 1;
+                        if (!search.trim().isEmpty()) {
+                            for (int i = 0; i < 7; i++) {
+                                ps.setString(idx++, "%" + search.trim() + "%");
+                            }
+                        }
+                        ps.setInt(idx++, limit);
+                        ps.setInt(idx, offset);
+                        try (ResultSet rs = ps.executeQuery()) {
+                            int rowNum = offset + 1;
+                            while (rs.next()) {
+                                m.addRow(new Object[]{
+                                    rowNum++,
+                                    rs.getString("Research Title"),
+                                    rs.getString("SY-YR"),
+                                    rs.getString("Applied"),
+                                    rs.getString("Strand"),
+                                    rs.getString("Software"),
+                                    rs.getString("Webpage"),
+                                    rs.getString("Research Paper")
+                                });
+                            }
+                        }
+                    }
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
             }
         }
+
         HardBindLoader loader = new HardBindLoader();
-        pagination.addChangeListener(e -> loader.load(pagination.getSelectedPage()));
-        loader.load(1);
+        loader.load(1, "");   
+
+
+        btnSearch.addActionListener(e -> loader.load(pagination.getSelectedPage(), txtSearch.getText().trim()));
+        btnShowAll.addActionListener(e -> {
+            txtSearch.setText("");
+            loader.load(1, "");
+        });
+
+        txtSearch.addActionListener(e -> loader.load(pagination.getSelectedPage(), txtSearch.getText().trim()));
+
+        pagination.addChangeListener(e -> loader.load(pagination.getSelectedPage(), txtSearch.getText().trim()));
 
         JPanel panelPage = new JPanel(new MigLayout("insets 5 15 5 15", "[][]push[]"));
         panelPage.putClientProperty(FlatClientProperties.STYLE, "background:null;");
@@ -1024,53 +1077,34 @@ public class FormTable extends Form {
         panelPage.add(pagination);
         panelTable.add(panelPage);
 
-        // ---------- Column widths ----------
         table.setAutoResizeMode(JTable.AUTO_RESIZE_SUBSEQUENT_COLUMNS);
-        table.getColumnModel().getColumn(0).setPreferredWidth(40);   // #
+        table.getColumnModel().getColumn(0).setPreferredWidth(40);
         table.getColumnModel().getColumn(0).setMaxWidth(50);
-        table.getColumnModel().getColumn(1).setPreferredWidth(350);  // Research Title
-
-        table.getColumnModel().getColumn(2).setPreferredWidth(80);   // SY-YR
+        table.getColumnModel().getColumn(1).setPreferredWidth(350);
+        table.getColumnModel().getColumn(2).setPreferredWidth(80);
         table.getColumnModel().getColumn(2).setMaxWidth(120);
-
-        table.getColumnModel().getColumn(3).setPreferredWidth(90);   // Applied
+        table.getColumnModel().getColumn(3).setPreferredWidth(90);
         table.getColumnModel().getColumn(3).setMaxWidth(120);
-
-        table.getColumnModel().getColumn(4).setPreferredWidth(60);   // Strand
+        table.getColumnModel().getColumn(4).setPreferredWidth(60);
         table.getColumnModel().getColumn(4).setMaxWidth(100);
-
-        table.getColumnModel().getColumn(5).setPreferredWidth(70);   // Software
+        table.getColumnModel().getColumn(5).setPreferredWidth(70);
         table.getColumnModel().getColumn(5).setMaxWidth(100);
-
-        table.getColumnModel().getColumn(6).setPreferredWidth(70);   // Webpage
+        table.getColumnModel().getColumn(6).setPreferredWidth(70);
         table.getColumnModel().getColumn(6).setMaxWidth(100);
-
-        table.getColumnModel().getColumn(7).setPreferredWidth(70);   // Research Paper
+        table.getColumnModel().getColumn(7).setPreferredWidth(70);
         table.getColumnModel().getColumn(7).setMaxWidth(100);
 
-        // Styling (same as before)
-        panelTable.putClientProperty(FlatClientProperties.STYLE, "" +
-                "arc:10;" +
-                "background:$Table.background;");
-        table.getTableHeader().putClientProperty(FlatClientProperties.STYLE, "" +
-                "height:30;" +
-                "hoverBackground:null;" +
-                "pressedBackground:null;" +
-                "separatorColor:$TableHeader.background;");
-        table.putClientProperty(FlatClientProperties.STYLE, "" +
-                "rowHeight:30;" +
-                "showHorizontalLines:true;" +
-                "intercellSpacing:0,1;" +
-                "cellFocusColor:$TableHeader.hoverBackground;" +
-                "selectionBackground:$TableHeader.hoverBackground;" +
-                "selectionInactiveBackground:$TableHeader.hoverBackground;" +
-                "selectionForeground:$Table.foreground;");
-        scrollPane.getVerticalScrollBar().putClientProperty(FlatClientProperties.STYLE, "" +
-                "trackArc:$ScrollBar.thumbArc;" +
-                "trackInsets:3,3,3,3;" +
-                "thumbInsets:3,3,3,3;" +
-                "background:$Table.background;");
-
+        
+        panelTable.putClientProperty(FlatClientProperties.STYLE,
+                "arc:10;background:$Table.background;");
+        table.getTableHeader().putClientProperty(FlatClientProperties.STYLE,
+                "height:30;hoverBackground:null;pressedBackground:null;separatorColor:$TableHeader.background;");
+        table.putClientProperty(FlatClientProperties.STYLE,
+                "rowHeight:30;showHorizontalLines:true;intercellSpacing:0,1;"
+                + "cellFocusColor:$TableHeader.hoverBackground;selectionBackground:$TableHeader.hoverBackground;"
+                + "selectionInactiveBackground:$TableHeader.hoverBackground;selectionForeground:$Table.foreground;");
+        scrollPane.getVerticalScrollBar().putClientProperty(FlatClientProperties.STYLE,
+                "trackArc:$ScrollBar.thumbArc;trackInsets:3,3,3,3;thumbInsets:3,3,3,3;background:$Table.background;");
         table.getTableHeader().setDefaultRenderer(new TableHeaderAlignment(table) {
             @Override protected int getAlignment(int column) {
                 return (column == 0) ? SwingConstants.CENTER : SwingConstants.LEADING;
@@ -1079,6 +1113,7 @@ public class FormTable extends Form {
 
         return panelTable;
     }
+    
     private Component createHeaderAction() {
         JPanel panel = new JPanel(new MigLayout("insets 5 20 5 20", "[fill,230]push[][]"));
 

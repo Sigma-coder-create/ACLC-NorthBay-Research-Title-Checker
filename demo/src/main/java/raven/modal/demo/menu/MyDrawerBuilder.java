@@ -150,6 +150,7 @@ public class MyDrawerBuilder extends SimpleDrawerBuilder {
                 new Item("Dashboard", "dashboard.svg", FormDashboard.class),
                 new Item.Label("SWING UI"),
                 new Item("Forms", "forms.svg")
+                        .subMenu("Input", FormInput.class)
                         .subMenu("Table", FormTable.class),
                 new Item.Label("OTHER"),
                 new Item("Setting", "setting.svg", FormSetting.class),

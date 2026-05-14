@@ -32,10 +32,10 @@ public class FormInput extends Form {
     private JTextField titleField;
     private JTextField schoolYearField;
     private JComboBox<String> strandCombo;
-    private JComboBox<SectionItem> sectionCombo;       // <-- now holds SectionItem objects
-    private JComboBox<String> appliedCombo;
+    private JComboBox<SectionItem> sectionCombo;
     private JComboBox<String> softwareCombo;
     private JComboBox<String> webpageCombo;
+    private JComboBox<String> researchpaperCombo;
     private JPanel suggestionPanel;
     private Timer debounceTimer;
 
@@ -73,10 +73,9 @@ public class FormInput extends Form {
 
         strandCombo = new JComboBox<>(new String[]{"", "ICT", "GAS"});
         sectionCombo = new JComboBox<>();      // will be populated dynamically
-        appliedCombo = new JComboBox<>(new String[]{"Yes", "Not yet", "No"});
         softwareCombo = new JComboBox<>(new String[]{"✔", "✘"});
         webpageCombo = new JComboBox<>(new String[]{"✔", "✘"});
-
+        researchpaperCombo = new JComboBox<>(new String[]{"✔", "✘"});
         // Add fields to layout
         add(new JLabel("Research Title:"));
         add(titleField, "growx");
@@ -89,20 +88,28 @@ public class FormInput extends Form {
         add(new JLabel("Section:"));
         add(sectionCombo, "growx");
 
-        add(new JLabel("Applied:"));
-        add(appliedCombo, "growx");
         add(new JLabel("Software:"));
         add(softwareCombo, "growx");
         add(new JLabel("Webpage:"));
         add(webpageCombo, "growx");
+        add(new JLabel("Research Paper:"));
+        add(researchpaperCombo, "growx");
+        
 
         // Suggestion panel for live similarity
         suggestionPanel = new JPanel();
         suggestionPanel.setLayout(new BoxLayout(suggestionPanel, BoxLayout.Y_AXIS));
-        suggestionPanel.setBackground(new Color(245, 245, 245));
-        suggestionPanel.setBorder(BorderFactory.createTitledBorder("Similar Titles Found"));
+        suggestionPanel.setBackground(Color.WHITE);
+        suggestionPanel.setBorder(BorderFactory.createTitledBorder(
+                BorderFactory.createLineBorder(new Color(200, 200, 200)),
+                "Similar Titles Found",
+                TitledBorder.LEFT, TitledBorder.TOP,
+                new Font("Segoe UI", Font.BOLD, 12), new Color(80, 80, 80)));
         suggestionPanel.setVisible(false);
-        add(suggestionPanel, "span 2, growx");
+        JPanel wrapper = new JPanel(new BorderLayout());
+    wrapper.setOpaque(false);
+    wrapper.add(suggestionPanel, BorderLayout.CENTER);
+    add(wrapper, "span 2, growx, gapy 8");
 
         // Submit button
         JButton submitBtn = new JButton("Submit Research Title");
@@ -184,17 +191,64 @@ public class FormInput extends Form {
             suggestionPanel.setVisible(false);
             return;
         }
+
         List<TimeLimit> matches = SimilarityUtil.getDetailedSimilarTitles(title);
         suggestionPanel.removeAll();
+
         if (matches.isEmpty()) {
-            suggestionPanel.add(new JLabel("No similar titles found."));
-        } else {
-            for (int i = 0; i < Math.min(matches.size(), 3); i++) {
-                TimeLimit m = matches.get(i);
-                JLabel label = new JLabel(String.format("%s (%.0f%% match)", m.title, m.score * 100));
-                suggestionPanel.add(label);
-            }
+            suggestionPanel.setVisible(false);
+            return;
         }
+
+        // Get theme‑aware colors
+        Color panelBg = UIManager.getColor("Panel.background");
+        Color labelFg = UIManager.getColor("Label.foreground");
+        Color separatorColor = UIManager.getColor("Separator.foreground"); // subtle border
+        Color barBg = UIManager.getColor("ProgressBar.background");
+        if (barBg == null) barBg = new Color(240, 240, 240); // fallback
+
+        // Show up to 5 most similar titles
+        int maxShow = Math.min(matches.size(), 5);
+        for (int i = 0; i < maxShow; i++) {
+            TimeLimit m = matches.get(i);
+            double percent = m.score * 100;
+
+            // Card panel
+            JPanel card = new JPanel(new MigLayout("insets 8, gap 5", "[grow]"));
+            card.setBackground(panelBg);
+            card.setBorder(BorderFactory.createCompoundBorder(
+                    BorderFactory.createMatteBorder(0, 0, 1, 0, separatorColor != null ? separatorColor : Color.LIGHT_GRAY),
+                    BorderFactory.createEmptyBorder(5, 0, 5, 0)));
+
+            // Title label (bold)
+            JLabel titleLbl = new JLabel("<html><b>" + m.title + "</b></html>");
+            titleLbl.setFont(titleLbl.getFont().deriveFont(Font.PLAIN, 13f));
+            titleLbl.setForeground(labelFg);
+
+            // Similarity bar (color‑coded)
+            JProgressBar bar = new JProgressBar(0, 100);
+            bar.setValue((int) percent);
+            bar.setStringPainted(true);
+            bar.setString(String.format("%.0f%% similar", percent));
+            bar.setForeground(percent > 75 ? new Color(220, 53, 69) :
+                            percent > 50 ? new Color(255, 193, 7) : new Color(40, 167, 69));
+            bar.setBackground(barBg);
+
+            // Add to card
+            card.add(titleLbl, "wrap");
+            card.add(bar, "growx, h 18!");
+
+            suggestionPanel.add(card);
+        }
+
+        // Style the suggestion panel itself
+        suggestionPanel.setBackground(panelBg);
+        suggestionPanel.setBorder(BorderFactory.createTitledBorder(
+                BorderFactory.createLineBorder(separatorColor != null ? separatorColor : Color.GRAY),
+                "Similar Titles Found",
+                TitledBorder.LEFT, TitledBorder.TOP,
+                new Font("Segoe UI", Font.BOLD, 12), labelFg));
+
         suggestionPanel.setVisible(true);
         suggestionPanel.revalidate();
         suggestionPanel.repaint();
@@ -242,16 +296,16 @@ public class FormInput extends Form {
         }
 
         String sql = "INSERT INTO aclc_research_titles (`Research Title`, `SY-YR`, `Status`, `Approved by`, " +
-                     "`Applied`, `Strand`, `Software`, `Webpage`, `section_id`, record_state, last_updated) " +
-                     "VALUES (?, ?, 'Pending', NULL, ?, ?, ?, ?, ?, 'ACTIVE', NOW())";
+                     "`Strand`, `Software`, `Webpage`, `Research Paper`, `section_id`, record_state, last_updated) " +
+                     "VALUES (?, ?, 'Approved', NULL, ?, ?, ?, ?, ?, 'ACTIVE', NOW())";
 
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, title);
             ps.setString(2, sy);
-            ps.setString(3, (String) appliedCombo.getSelectedItem());
-            ps.setString(4, strand);
-            ps.setString(5, (String) softwareCombo.getSelectedItem());
-            ps.setString(6, (String) webpageCombo.getSelectedItem());
+            ps.setString(3, strand);
+            ps.setString(4, (String) softwareCombo.getSelectedItem());
+            ps.setString(5, (String) webpageCombo.getSelectedItem());
+            ps.setString(6, (String) researchpaperCombo.getSelectedItem());
             ps.setInt(7, selectedSection.id);
             ps.executeUpdate();
 
@@ -262,9 +316,9 @@ public class FormInput extends Form {
             titleField.setText("");
             schoolYearField.setText("");
             strandCombo.setSelectedIndex(0);
-            appliedCombo.setSelectedIndex(0);
             softwareCombo.setSelectedIndex(0);
             webpageCombo.setSelectedIndex(0);
+            researchpaperCombo.setSelectedIndex(0);
             suggestionPanel.removeAll();
             suggestionPanel.setVisible(false);
         } catch (SQLException ex) {

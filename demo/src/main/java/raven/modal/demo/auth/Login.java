@@ -84,7 +84,7 @@ public class Login extends Form {
         loginContent.add(txtPassword);
         loginContent.add(chRememberMe, "grow 0");
         loginContent.add(cmdLogin, "gapy 20");
-        loginContent.add(createInfo());
+        //loginContent.add(createInfo());
 
         panelLogin.add(loginContent);
         add(panelLogin);
@@ -105,14 +105,14 @@ public class Login extends Form {
         });
     }
 
-    private JPanel createInfo() {
+    /*private JPanel createInfo() {
         JPanel panelInfo = new JPanel(new MigLayout("wrap,al center", "[center]"));
         panelInfo.putClientProperty(FlatClientProperties.STYLE, "" +
                 "background:null;");
 
         // "Create one here" label
-        JLabel lbNoAccount = new JLabel("Don't have an account?");
-        JLabel lbCreate = new JLabel("<html><u>Create one here</u></html>");
+       // JLabel lbNoAccount = new JLabel("Don't have an account?");
+        //JLabel lbCreate = new JLabel("<html><u>Create one here</u></html>");
         lbCreate.setForeground(new Color(0, 102, 204));
         lbCreate.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         lbCreate.addMouseListener(new MouseAdapter() {
@@ -146,7 +146,7 @@ public class Login extends Form {
         panelInfo.add(lbLink);
 
         return panelInfo;
-    }
+    }*/
 
     private ModelUser getUser(String emailOrUsername, String password) {
         ModelUser user = null;
